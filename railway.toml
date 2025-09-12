@@ -1,0 +1,25 @@
+# AI Garden Enhanced Railway MCP Server Configuration
+# Phase 3.1 - Explicit Python project detection
+# Created: 2025-09-12T23:36:00Z
+
+[build]
+# Ensure Railway detects this as Python project
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+# Explicit start command prevents Node.js detection issues
+startCommand = "python server_enhanced.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "never"
+
+[environments.production]
+# Production environment variables
+MCP_TRANSPORT = "sse"
+REQUIRE_AUTHENTICATION = "true"
+RATE_LIMIT_PER_MINUTE = "60"
+
+[environments.development]  
+# Development overrides
+REQUIRE_AUTHENTICATION = "false"
+RATE_LIMIT_PER_MINUTE = "30"
