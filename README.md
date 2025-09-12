@@ -130,42 +130,79 @@ python server_enhanced.py
 ### Test Connection
 In ChatGPT: "Search my memory for information about AI Garden"
 
-## 📋 Environment Variables
+## 📚 Complete Documentation
 
-### Required
-- `NEO4J_URI`: AuraDB connection string
-- `NEO4J_USERNAME`: Database username (usually 'neo4j')
-- `NEO4J_PASSWORD`: Database password
+### 🚀 Quick Start Guides
+- **AI_GARDEN_DEPLOYMENT_GUIDE.md**: Complete deployment guide with architecture overview
+- **DEPLOYMENT_INSTRUCTIONS.md**: Step-by-step Railway deployment instructions  
+- **ENVIRONMENT_GUIDE.md**: Environment configuration with templates and validation
 
-### Security (Recommended)
-- `RAILWAY_BEARER_TOKEN`: Secure authentication token
-- `REQUIRE_AUTHENTICATION`: Enable auth (default: true)
-- `RATE_LIMIT_PER_MINUTE`: Requests per minute limit (default: 60)
+### 🏗️ Technical Documentation
+- **ARCHITECTURE.md**: Comprehensive system architecture and technical design
+- **README.md**: This file - project overview and quick reference
 
-### System (Auto-configured)
-- `PORT`: Railway assigns automatically
-- `MCP_TRANSPORT`: Auto-set to 'sse'
+### 🔧 Configuration Templates
+- **`.env.production`**: Production environment with maximum security
+- **`.env.staging`**: Pre-production testing with validation features
+- **`.env.development`**: Local development with debugging enabled
+- **`.env.example`**: Basic configuration template
+
+### 🛠️ Automation Scripts
+- **`deploy.sh`**: Pre-deployment validation and setup automation
+- **`validate_deployment.sh`**: Post-deployment testing and validation
+- **`validate_env.sh`**: Environment configuration validation
+- **`setup_github.sh`**: Automated GitHub repository creation
+- **`smoke.sh`**: Basic service health check
+
+### 📊 Deployment Assets
+- **`Dockerfile`**: Security-hardened container with audit trails
+- **`railway.toml`**: Railway platform configuration
+- **`requirements.txt`**: Python dependencies
+- **`ai-garden-deployment-manifest.json`**: Deployment metadata
+
+### 🤖 Core Application
+- **`server_enhanced.py`**: Enhanced MCP server v2.2.0 with security integration
+- **`security_middleware.py`**: Authentication, rate limiting, and audit logging
+- **`logging_config.py`**: Structured JSON logging with performance metrics
+- **`mcp_neo4j_semantic_server_with_consolidation.py`**: Original MCP server implementation
+- **`health_check.py`**: Service health monitoring
+
+## ⚡ Quick Commands
+
+```bash
+# Environment setup and validation
+./validate_env.sh                    # Validate current configuration
+cp .env.production .env              # Use production template
+cp .env.development .env             # Use development template
+
+# Deployment automation
+./deploy.sh                          # Complete deployment preparation
+./setup_github.sh [repo-name]       # Create GitHub repository
+git push origin main                 # Deploy to Railway (after setup)
+
+# Post-deployment validation
+./validate_deployment.sh https://your-service.up.railway.app your-token
+./smoke.sh https://your-service.up.railway.app  # Basic health check
+```
 
 ## 🔍 Troubleshooting
 
-### Authentication Errors
+**For detailed troubleshooting, see [AI_GARDEN_DEPLOYMENT_GUIDE.md](./AI_GARDEN_DEPLOYMENT_GUIDE.md#-troubleshooting)**
+
+### Quick Diagnostic Commands
 ```bash
-# Check if token is set
-echo $RAILWAY_BEARER_TOKEN
+# Environment validation
+./validate_env.sh
 
-# Test with correct token
-curl -H "Authorization: Bearer $RAILWAY_BEARER_TOKEN" https://<service>.up.railway.app/health
+# Service health check  
+curl -H "Authorization: Bearer $RAILWAY_BEARER_TOKEN" https://your-service.up.railway.app/health
+
+# View Railway logs
+railway logs
+
+# Test database connection
+python3 -c "from neo4j import GraphDatabase; print('✅ Neo4j available')"
 ```
-
-### Rate Limiting
-- Check response headers for rate limit status
-- Increase `RATE_LIMIT_PER_MINUTE` if needed
-- Monitor `/health` endpoint for rate limit metrics
-
-### Build Issues
-- Check build logs for security package installation
-- Verify all security middleware files are included
-- Check audit logs in `/app/audit/` directory
 
 ---
 
