@@ -91,7 +91,7 @@ import os
 # Configuration
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "daydreamer2025")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # Import JinaV3OptimizedEmbedder
 from jina_v3_optimized_embedder import JinaV3OptimizedEmbedder

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 PORT = int(os.environ.get('PORT', os.environ.get('MCP_PORT', '8080')))
 NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
 NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME', 'neo4j')
-NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', 'password')
+NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
 BEARER_TOKEN = os.environ.get('RAILWAY_BEARER_TOKEN', '')
 
 class Neo4jConnection:

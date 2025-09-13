@@ -321,7 +321,7 @@ class RailwayHealthMonitor:
                 from neo4j import GraphDatabase
                 neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
                 neo4j_username = os.getenv("NEO4J_USERNAME", "neo4j")
-                neo4j_password = os.getenv("NEO4J_PASSWORD", "daydreamer2025")
+                neo4j_password = os.getenv("NEO4J_PASSWORD")
                 
                 driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
                 with driver.session() as session:

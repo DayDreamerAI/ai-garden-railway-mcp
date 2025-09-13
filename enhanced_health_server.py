@@ -15,15 +15,15 @@ from urllib.parse import urlparse
 print(f"[STARTUP] Enhanced health server initializing...", file=sys.stderr, flush=True)
 
 PORT = int(os.environ.get("PORT", os.environ.get("MCP_PORT", 8080)))
-BEARER_TOKEN = os.environ.get("RAILWAY_BEARER_TOKEN", "c457969f6d9c3716ac9352e564c35d75d3952aa746982bea91ec5d23df73b827")
+BEARER_TOKEN = os.environ.get("RAILWAY_BEARER_TOKEN", "")
 
 # Try to import neo4j, but don't fail if not available
 try:
     from neo4j import GraphDatabase
     # AuraDB instance credentials
-    NEO4J_URI = os.environ.get("NEO4J_URI", "neo4j+s://09a0c1c3.databases.neo4j.io")
-    NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "09a0c1c3")
-    NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "03rTiZq13BJted_9S8PzDgl6Bx1L2lIFk4t3XyMBFn4")
+    NEO4J_URI = os.environ.get("NEO4J_URI")
+    NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
+    NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
     
     # Try to connect to Neo4j
     try:

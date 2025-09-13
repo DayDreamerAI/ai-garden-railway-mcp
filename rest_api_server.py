@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
 NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME', 'neo4j')
-NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', 'password')
+NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
 BEARER_TOKEN = os.environ.get('RAILWAY_BEARER_TOKEN', '')
 REQUIRE_AUTH = os.environ.get('REQUIRE_AUTHENTICATION', 'true').lower() == 'true'
 RATE_LIMIT = int(os.environ.get('RATE_LIMIT_PER_MINUTE', '60'))
