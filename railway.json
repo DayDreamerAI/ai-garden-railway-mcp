@@ -1,7 +1,0 @@
-{
-  "build": {"builder": "DOCKERFILE"},
-  "deploy": {"restartPolicyType": "ON_FAILURE"},
-  "variables": {
-    "MCP_TRANSPORT": "sse"
-  }
-}
