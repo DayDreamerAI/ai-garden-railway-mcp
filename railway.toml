@@ -7,8 +7,8 @@
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-# REST API server for ChatGPT Custom Connector
-startCommand = "python rest_api_server.py"
+# Simple API server for ChatGPT Custom Connector (no Flask dependencies)
+startCommand = "python simple_api_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
