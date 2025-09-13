@@ -51,11 +51,12 @@ RUN echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") - Requirements copied" >> /app/audit/
     pip list --format=json > /app/audit/installed-packages.json && \
     echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") - Python packages installed" >> /app/audit/build.log
 
-# Copy application files with audit trail
+# Copy application files - FIXED: using files that actually exist
 COPY mcp_neo4j_semantic_server_with_consolidation.py ./server_original.py
-COPY --from=build-context infrastructure/enhanced_railway_server.py ./server_enhanced.py
-COPY --from=build-context infrastructure/railway_security_audited.py ./security_middleware.py
-COPY --from=build-context infrastructure/logging_config.py ./logging_config.py
+COPY server_enhanced.py ./server_enhanced.py
+COPY security_middleware.py ./security_middleware.py
+COPY logging_config.py ./logging_config.py
+COPY health_check.py ./health_check.py
 
 # Create startup script with enhanced security
 RUN cat > /app/entrypoint.sh << 'EOF' && \
