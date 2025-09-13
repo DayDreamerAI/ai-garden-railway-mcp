@@ -58,6 +58,7 @@ COPY security_middleware.py ./security_middleware.py
 COPY logging_config.py ./logging_config.py
 COPY health_check.py ./health_check.py
 COPY simple_health_server.py ./simple_health_server.py
+COPY enhanced_health_server.py ./enhanced_health_server.py
 
 # Create startup script with enhanced security
 RUN echo '#!/bin/bash' > /app/entrypoint.sh && \
@@ -89,8 +90,8 @@ echo '# Set port from Railway environment' >> /app/entrypoint.sh && \
 echo 'export PORT=${PORT:-8080}' >> /app/entrypoint.sh && \
 echo 'echo "$TIMESTAMP - Starting server on port $PORT" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
 echo '' >> /app/entrypoint.sh && \
-echo '# Start the simple health server for Railway' >> /app/entrypoint.sh && \
-echo 'exec python simple_health_server.py 2>&1 | tee -a /app/audit/runtime.log' >> /app/entrypoint.sh && \
+echo '# Start the enhanced health server with REST API for Railway' >> /app/entrypoint.sh && \
+echo 'exec python enhanced_health_server.py 2>&1 | tee -a /app/audit/runtime.log' >> /app/entrypoint.sh && \
 chmod +x /app/entrypoint.sh && \
 echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") - Entrypoint script created" >> /app/audit/build.log
 
