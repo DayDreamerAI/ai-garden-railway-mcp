@@ -1,6 +1,8 @@
 # Core server + HTTP/SSE
 # Neo4j & utilities
 cryptography>=41.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
 mcp>=1.2.0
 neo4j>=5.23.0
 numpy>=1.26.0
