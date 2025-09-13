@@ -7,8 +7,8 @@
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-# Explicit start command prevents Node.js detection issues
-startCommand = "python server_enhanced.py"
+# Explicit start command for health server
+startCommand = "python simple_health_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
