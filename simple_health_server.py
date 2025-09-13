@@ -5,11 +5,16 @@ Provides a minimal /health endpoint that Railway can check
 """
 
 import os
+import sys
 import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
+# Immediate startup confirmation
+print(f"[STARTUP] simple_health_server.py initializing...", file=sys.stderr, flush=True)
+
 PORT = int(os.environ.get("PORT", 8080))
+print(f"[STARTUP] PORT environment variable: {PORT}", file=sys.stderr, flush=True)
 BEARER_TOKEN = os.environ.get("RAILWAY_BEARER_TOKEN", "c457969f6d9c3716ac9352e564c35d75d3952aa746982bea91ec5d23df73b827")
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -66,10 +71,11 @@ class HealthHandler(BaseHTTPRequestHandler):
         print(f"{datetime.utcnow().isoformat()} - {format % args}")
 
 def main():
-    print(f"Starting AI Garden Health Server on port {PORT}")
+    print(f"Starting AI Garden Health Server on port {PORT}", flush=True)
     server = HTTPServer(("0.0.0.0", PORT), HealthHandler)
-    print(f"Server listening on http://0.0.0.0:{PORT}")
-    print(f"Health endpoint: http://0.0.0.0:{PORT}/health")
+    print(f"Server listening on http://0.0.0.0:{PORT}", flush=True)
+    print(f"Health endpoint: http://0.0.0.0:{PORT}/health", flush=True)
+    print("Ready to accept connections!", flush=True)
     server.serve_forever()
 
 if __name__ == "__main__":

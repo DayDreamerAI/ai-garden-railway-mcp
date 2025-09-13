@@ -60,8 +60,7 @@ COPY health_check.py ./health_check.py
 COPY simple_health_server.py ./simple_health_server.py
 
 # Create startup script with enhanced security
-RUN cat > /app/entrypoint.sh << 'EOF' && \
-echo '#!/bin/bash' > /app/entrypoint.sh && \
+RUN echo '#!/bin/bash' > /app/entrypoint.sh && \
 echo 'set -euo pipefail' >> /app/entrypoint.sh && \
 echo '' >> /app/entrypoint.sh && \
 echo '# AI Garden Enhanced Railway MCP Server Entrypoint' >> /app/entrypoint.sh && \
@@ -87,8 +86,8 @@ echo 'python -c "import sys; print(f\"Python {sys.version}\")" >> /app/audit/run
 echo 'python -c "import json; import pkg_resources; installed = [str(d).split() for d in pkg_resources.working_set]; print(json.dumps(installed, indent=2))" > /app/audit/runtime-packages.json' >> /app/entrypoint.sh && \
 echo '' >> /app/entrypoint.sh && \
 echo '# Set port from Railway environment' >> /app/entrypoint.sh && \
-echo 'export MCP_PORT=${PORT:-8080}' >> /app/entrypoint.sh && \
-echo 'echo "$TIMESTAMP - Starting server on port $MCP_PORT" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
+echo 'export PORT=${PORT:-8080}' >> /app/entrypoint.sh && \
+echo 'echo "$TIMESTAMP - Starting server on port $PORT" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
 echo '' >> /app/entrypoint.sh && \
 echo '# Start the simple health server for Railway' >> /app/entrypoint.sh && \
 echo 'exec python simple_health_server.py 2>&1 | tee -a /app/audit/runtime.log' >> /app/entrypoint.sh && \
