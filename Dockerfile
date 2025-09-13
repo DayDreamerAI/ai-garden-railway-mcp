@@ -72,8 +72,9 @@ echo 'echo "$TIMESTAMP - Container starting" >> /app/audit/runtime.log' >> /app/
 echo '' >> /app/entrypoint.sh && \
 echo '# Environment validation' >> /app/entrypoint.sh && \
 echo 'if [[ -z "${NEO4J_URI:-}" ]]; then' >> /app/entrypoint.sh && \
-echo '  echo "$TIMESTAMP - ERROR: NEO4J_URI not set" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
-echo '  exit 1' >> /app/entrypoint.sh && \
+echo '  echo "$TIMESTAMP - WARNING: NEO4J_URI not set - running in health-check-only mode" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
+echo 'else' >> /app/entrypoint.sh && \
+echo '  echo "$TIMESTAMP - NEO4J_URI configured: ${NEO4J_URI}" >> /app/audit/runtime.log' >> /app/entrypoint.sh && \
 echo 'fi' >> /app/entrypoint.sh && \
 echo '' >> /app/entrypoint.sh && \
 echo '# Security audit log' >> /app/entrypoint.sh && \
