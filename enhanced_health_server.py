@@ -163,9 +163,9 @@ class EnhancedHandler(BaseHTTPRequestHandler):
                 try:
                     with driver.session() as session:
                         result = session.run("""
-                            MATCH (n:Entity {name: $name})
+                            MATCH (n:Entity {name: $entity_name})
                             RETURN n.name as name, n.entityType as type
-                        """, name=entity_name)
+                        """, entity_name=entity_name)
                         record = result.single()
                         
                         if record:
@@ -224,10 +224,10 @@ class EnhancedHandler(BaseHTTPRequestHandler):
                     with driver.session() as session:
                         result = session.run("""
                             MATCH (n:Entity)
-                            WHERE toLower(n.name) CONTAINS toLower($query)
+                            WHERE toLower(n.name) CONTAINS toLower($search_term)
                             RETURN n.name as name, n.entityType as type
                             LIMIT 5
-                        """, query=query)
+                        """, search_term=query)
                         
                         entities = [dict(record) for record in result]
                 else:
