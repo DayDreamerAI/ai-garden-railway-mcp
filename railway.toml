@@ -4,11 +4,11 @@
 
 [build]
 # Ensure Railway detects this as Python project
-buildCommand = "pip install -r requirements.txt"
+buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhanced_health_server.py ready'"
 
 [deploy]
 # Enhanced health server with REST API for ChatGPT
-startCommand = "python enhanced_health_server.py"
+startCommand = "python -u enhanced_health_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
