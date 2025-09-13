@@ -21,11 +21,11 @@ from typing import Dict, Any, Optional, Callable
 from pathlib import Path
 
 try:
-    from infrastructure.logging_config import AIGardenLogger
+    from logging_config import AIGardenLogger
 except ImportError:
     import sys
-    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-    from infrastructure.logging_config import AIGardenLogger
+    sys.path.append(os.path.dirname(__file__))
+    from logging_config import AIGardenLogger
 
 
 class SecurityAuditLogger:
