@@ -45,7 +45,18 @@ class EnhancedHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         
-        if parsed.path == "/health":
+        if parsed.path == "/version":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "server": "enhanced_health_server",
+                "version": "4.0.0",
+                "auradb": "configured",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }).encode())
+            
+        elif parsed.path == "/health":
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
             self.end_headers()
