@@ -27,10 +27,9 @@ class DebugHandler(BaseHTTPRequestHandler):
                 # Hide sensitive values but show they exist
                 if any(x in key.upper() for x in ['PASSWORD', 'TOKEN', 'SECRET', 'KEY']):
                     env_vars[key] = f"[SET - {len(value)} chars]" if value else "NOT SET"
-                elif key.startswith('NEO4J'):
-                    env_vars[key] = value if value else "NOT SET"
-                elif key in ['PORT', 'RAILWAY_ENVIRONMENT', 'RAILWAY_PROJECT_ID']:
-                    env_vars[key] = value
+                else:
+                    # Show first 20 chars of all other variables
+                    env_vars[key] = value[:20] + "..." if len(value) > 20 else value
 
             response = {
                 "neo4j_specific": {
@@ -38,7 +37,9 @@ class DebugHandler(BaseHTTPRequestHandler):
                     "NEO4J_USERNAME": os.environ.get('NEO4J_USERNAME', 'NOT SET'),
                     "NEO4J_PASSWORD": "SET" if os.environ.get('NEO4J_PASSWORD') else "NOT SET"
                 },
+                "total_vars": len(os.environ),
                 "all_env_vars": sorted(env_vars.keys()),
+                "all_values": env_vars,
                 "railway_vars": {k: v for k, v in env_vars.items() if k.startswith('RAILWAY')}
             }
 
