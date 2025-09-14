@@ -8,7 +8,7 @@ buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhance
 
 [deploy]
 # Enhanced health server with REST API for ChatGPT
-startCommand = "python -u enhanced_health_server.py"
+startCommand = "python -u simple_diagnostic.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
