@@ -13,6 +13,10 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from neo4j import GraphDatabase
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
