@@ -33,6 +33,12 @@ NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
 BEARER_TOKEN = os.environ.get('RAILWAY_BEARER_TOKEN', '')
 PORT = int(os.environ.get('PORT', 8080))
 
+# Debug logging
+logger.info(f"Environment check - NEO4J_URI present: {bool(NEO4J_URI)}")
+logger.info(f"Environment check - NEO4J_PASSWORD present: {bool(NEO4J_PASSWORD)}")
+if NEO4J_URI:
+    logger.info(f"NEO4J_URI starts with: {NEO4J_URI[:20]}...")
+
 @dataclass
 class MCPRequest:
     """MCP Request structure"""
