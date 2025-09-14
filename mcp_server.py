@@ -8,7 +8,7 @@ import os
 import sys
 import json
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from neo4j import GraphDatabase
@@ -453,7 +453,7 @@ async def main():
             "type": "mcp",
             "server": SERVER_INFO,
             "neo4j": "connected" if server.neo4j_connected else "disconnected",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
 
     app = web.Application()
