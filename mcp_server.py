@@ -106,10 +106,10 @@ class MCPServer:
         }
 
     async def handle_tools_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List available tools"""
+        """List available tools - ChatGPT compatible"""
         tools = [
             Tool(
-                name="search_entities",
+                name="search",
                 description="Search for entities in the AI Garden knowledge graph",
                 inputSchema={
                     "type": "object",
@@ -128,35 +128,22 @@ class MCPServer:
                 }
             ),
             Tool(
-                name="get_entity",
-                description="Get detailed information about a specific entity",
+                name="fetch",
+                description="Fetch comprehensive information about a specific entity including relationships",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string",
-                            "description": "Name of the entity to retrieve"
+                            "description": "Name of the entity to fetch"
+                        },
+                        "include_relationships": {
+                            "type": "boolean",
+                            "description": "Include detailed relationships",
+                            "default": True
                         }
                     },
                     "required": ["name"]
-                }
-            ),
-            Tool(
-                name="get_relationships",
-                description="Get relationships for a specific entity",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "entity_name": {
-                            "type": "string",
-                            "description": "Name of the entity"
-                        },
-                        "relationship_type": {
-                            "type": "string",
-                            "description": "Optional: filter by relationship type"
-                        }
-                    },
-                    "required": ["entity_name"]
                 }
             )
         ]
@@ -166,21 +153,26 @@ class MCPServer:
         }
 
     async def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a tool call"""
+        """Execute a tool call - ChatGPT compatible"""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
 
-        if tool_name == "search_entities":
-            return await self.search_entities(arguments)
+        if tool_name == "search":
+            return await self.search(arguments)
+        elif tool_name == "fetch":
+            return await self.fetch(arguments)
+        # Legacy support for backward compatibility
+        elif tool_name == "search_entities":
+            return await self.search(arguments)
         elif tool_name == "get_entity":
-            return await self.get_entity(arguments)
+            return await self.fetch(arguments)
         elif tool_name == "get_relationships":
             return await self.get_relationships(arguments)
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
 
-    async def search_entities(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Search for entities in the knowledge graph"""
+    async def search(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for entities in the knowledge graph - ChatGPT compatible"""
         query = args.get("query", "")
         limit = args.get("limit", 5)
 
@@ -190,30 +182,38 @@ class MCPServer:
                     result = session.run("""
                         MATCH (n:Entity)
                         WHERE toLower(n.name) CONTAINS toLower($search_term)
+                           OR any(obs IN n.observations WHERE toLower(obs) CONTAINS toLower($search_term))
                         RETURN n.name as name, n.entityType as type,
                                n.observations as observations
+                        ORDER BY size(n.observations) DESC
                         LIMIT $limit
                     """, search_term=query, limit=limit)
 
-                    entities = []
+                    results = []
                     for record in result:
-                        entity_data = {
-                            "name": record["name"],
-                            "type": record["type"]
-                        }
-                        if record["observations"]:
-                            entity_data["observations"] = record["observations"][:3]
-                        entities.append(entity_data)
+                        # Create ChatGPT-compatible result format
+                        entity_name = record["name"]
+                        entity_type = record["type"] or "entity"
 
+                        # Create a brief snippet from observations
+                        observations = record["observations"] or []
+                        snippet = ""
+                        if observations:
+                            snippet = observations[0][:150] + "..." if len(observations[0]) > 150 else observations[0]
+
+                        result_item = {
+                            "id": entity_name,  # Use entity name as ID for fetch
+                            "title": f"{entity_name} ({entity_type})",
+                            "url": f"https://ai-garden-railway-mcp-production.up.railway.app/entity/{entity_name}"
+                        }
+                        results.append(result_item)
+
+                    # Return ChatGPT-compatible format
                     return {
                         "content": [
                             {
                                 "type": "text",
-                                "text": json.dumps({
-                                    "entities": entities,
-                                    "query": query,
-                                    "count": len(entities)
-                                }, indent=2)
+                                "text": json.dumps({"results": results})
                             }
                         ]
                     }
@@ -223,9 +223,9 @@ class MCPServer:
         else:
             return self._mock_search_response(query)
 
-    async def get_entity(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Get detailed information about an entity"""
-        name = args.get("name", "")
+    async def fetch(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Fetch comprehensive information about a specific entity - ChatGPT compatible"""
+        entity_id = args.get("id", "") or args.get("name", "")  # Support both id and name
 
         if self.neo4j_connected and self.driver:
             try:
@@ -239,20 +239,47 @@ class MCPServer:
                                    type: type(r),
                                    related: related.name
                                }) as relationships
-                    """, entity_name=name)
+                    """, entity_name=entity_id)
 
                     record = result.single()
                     if record:
+                        observations = record["observations"] or []
+                        relationships = record["relationships"] or []
+
+                        # Format full text with observations and relationships
+                        text_parts = []
+                        text_parts.append(f"Entity: {record['name']}")
+                        text_parts.append(f"Type: {record['type'] or 'Unknown'}")
+
+                        if observations:
+                            text_parts.append(f"\nObservations:")
+                            for i, obs in enumerate(observations[:10], 1):  # Limit to first 10
+                                text_parts.append(f"{i}. {obs}")
+
+                        if relationships:
+                            text_parts.append(f"\nRelationships:")
+                            for rel in relationships[:10]:  # Limit to first 10
+                                if rel.get('related') and rel.get('type'):
+                                    text_parts.append(f"- {rel['type']}: {rel['related']}")
+
+                        full_text = "\n".join(text_parts)
+
+                        # Return ChatGPT-compatible format
                         return {
                             "content": [
                                 {
                                     "type": "text",
                                     "text": json.dumps({
-                                        "name": record["name"],
-                                        "type": record["type"],
-                                        "observations": record["observations"],
-                                        "relationships": record["relationships"]
-                                    }, indent=2)
+                                        "id": record["name"],
+                                        "title": f"{record['name']} ({record['type'] or 'entity'})",
+                                        "text": full_text,
+                                        "url": f"https://ai-garden-railway-mcp-production.up.railway.app/entity/{record['name']}",
+                                        "metadata": {
+                                            "entity_type": record["type"],
+                                            "observation_count": len(observations),
+                                            "relationship_count": len(relationships)
+                                        }
+                                    })
                                 }
                             ]
                         }
@@ -261,15 +288,30 @@ class MCPServer:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": f"Entity '{name}' not found"
+                                    "text": json.dumps({
+                                        "id": entity_id,
+                                        "title": f"Entity '{entity_id}' not found",
+                                        "text": f"No entity found with name: {entity_id}",
+                                        "url": "",
+                                        "metadata": {"error": "not_found"}
+                                    })
                                 }
                             ]
                         }
             except Exception as e:
-                logger.error(f"Get entity error: {e}")
-                return self._mock_entity_response(name)
+                logger.error(f"Fetch entity error: {e}")
+                return self._mock_entity_response(entity_id)
         else:
-            return self._mock_entity_response(name)
+            return self._mock_entity_response(entity_id)
+
+    # Maintain backward compatibility with existing method names
+    async def search_entities(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Legacy method for backward compatibility"""
+        return await self.search(args)
+
+    async def get_entity(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Legacy method for backward compatibility"""
+        return await self.fetch(args)
 
     async def get_relationships(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Get relationships for an entity"""
@@ -321,8 +363,8 @@ class MCPServer:
             return self._mock_relationships_response(entity_name)
 
     def _mock_search_response(self, query: str) -> Dict[str, Any]:
-        """Return mock search results when Neo4j is not connected"""
-        mock_entities = []
+        """Return mock search results when Neo4j is not connected - ChatGPT compatible"""
+        results = []
         if "ai" in query.lower() or "garden" in query.lower():
             mock_entities = [
                 {"name": "AI Garden", "type": "strategic_initiative"},
@@ -330,31 +372,35 @@ class MCPServer:
                 {"name": "ChatGPT (AI Garden Agent)", "type": "ai_agent"}
             ]
 
+            for entity in mock_entities:
+                results.append({
+                    "id": entity["name"],
+                    "title": f"{entity['name']} ({entity['type']})",
+                    "url": f"https://ai-garden-railway-mcp-production.up.railway.app/entity/{entity['name']}"
+                })
+
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({
-                        "entities": mock_entities,
-                        "query": query,
-                        "count": len(mock_entities),
-                        "note": "Mock data - Neo4j not connected"
-                    }, indent=2)
+                    "text": json.dumps({"results": results})
                 }
             ]
         }
 
-    def _mock_entity_response(self, name: str) -> Dict[str, Any]:
-        """Return mock entity data when Neo4j is not connected"""
+    def _mock_entity_response(self, entity_id: str) -> Dict[str, Any]:
+        """Return mock entity data when Neo4j is not connected - ChatGPT compatible"""
         return {
             "content": [
                 {
                     "type": "text",
                     "text": json.dumps({
-                        "name": name,
-                        "type": "mock",
-                        "note": "Mock data - Neo4j not connected"
-                    }, indent=2)
+                        "id": entity_id,
+                        "title": f"{entity_id} (mock)",
+                        "text": f"Mock entity data for: {entity_id}\n\nNote: Neo4j database not connected. This is simulated data.",
+                        "url": f"https://ai-garden-railway-mcp-production.up.railway.app/entity/{entity_id}",
+                        "metadata": {"source": "mock", "neo4j_connected": False}
+                    })
                 }
             ]
         }
