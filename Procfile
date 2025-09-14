@@ -1,1 +1,1 @@
-web: python -u mcp_server.py
+web: python -u debug_server.py
