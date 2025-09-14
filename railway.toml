@@ -7,8 +7,8 @@
 buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhanced_health_server.py ready'"
 
 [deploy]
-# Enhanced health server with REST API for ChatGPT
-startCommand = "python -u enhanced_health_server.py"
+# MCP server compliant with Model Context Protocol
+startCommand = "python -u mcp_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"

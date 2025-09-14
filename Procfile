@@ -1,1 +1,1 @@
-web: python -u enhanced_health_server.py
+web: python -u mcp_server.py

@@ -1,2 +1,4 @@
-# Core dependencies for simple API server
+# Core dependencies for MCP and API servers
 neo4j>=5.23.0
+aiohttp>=3.9.0
+python-dotenv
