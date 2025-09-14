@@ -7,8 +7,8 @@
 buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhanced_health_server.py ready'"
 
 [deploy]
-# Debug server to check environment variables
-startCommand = "python -u debug_server.py"
+# MCP server compliant with Model Context Protocol
+startCommand = "python -u mcp_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
