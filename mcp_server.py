@@ -514,6 +514,7 @@ async def main():
 
     app = web.Application()
     app.router.add_post('/mcp', handle_mcp)
+    app.router.add_get('/mcp', handle_mcp)  # SSE support for Custom Connectors
     app.router.add_get('/health', health_check)
     app.router.add_get('/', root_info)
 
@@ -521,8 +522,8 @@ async def main():
     app.router.add_route('OPTIONS', '/mcp', lambda r: web.Response(
         headers={
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept'
         }
     ))
 
