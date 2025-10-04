@@ -8,7 +8,7 @@ buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhance
 
 [deploy]
 # MCP server compliant with Model Context Protocol
-startCommand = "python -u mcp_server.py"
+startCommand = "python -u mcp_neo4j_semantic_server_with_consolidation.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"

@@ -1,1 +1,1 @@
-web: python -u mcp_server.py
+web: python -u mcp_neo4j_semantic_server_with_consolidation.py
