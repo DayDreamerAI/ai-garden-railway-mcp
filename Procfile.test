@@ -1,1 +1,0 @@
-web: python -u test_env.py

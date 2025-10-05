@@ -1,1 +1,0 @@
-web: python -u minimal_sse_server.py
