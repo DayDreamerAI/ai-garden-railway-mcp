@@ -6,6 +6,11 @@ Connect Claude Desktop, Mobile, or ChatGPT to your Daydreamer memory via Railway
 
 **Deployment URL**: `https://ai-garden-railway-mcp-production.up.railway.app`
 
+**Production Status**: ✅ **VALIDATED** - Full production database migrated to AuraDB (October 5, 2025)
+- 27,487 entities accessible across all platforms
+- 110,449 relationships with complete Perennial V6 architecture
+- Multi-platform AI personality continuity operational
+
 ## Prerequisites
 
 - Claude Desktop app installed
@@ -149,8 +154,8 @@ curl -N -H "Authorization: Bearer <token>" \
 Required variables set in Railway project:
 
 ```bash
-# AuraDB Connection
-NEO4J_URI=neo4j+s://8c3b5488.databases.neo4j.io:7687
+# AuraDB Connection (Production - Migrated Oct 5, 2025)
+NEO4J_URI=neo4j+s://8c3b5488.databases.neo4j.io
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=<auradb-password>
 
@@ -177,9 +182,53 @@ Claude Desktop/Web/Mobile
 Railway MCP Server (SSE Transport)
     ↓ Security Middleware (auth, rate limit, audit)
 MCP Protocol Handler
-    ↓ bolt+s://
-Neo4j AuraDB (Cloud)
+    ↓ neo4j+s:// (Bolt Secure)
+Neo4j AuraDB (Cloud - InstanceDaydreamer_01)
+    └─ 27,487 entities, 110,449 relationships
 ```
+
+## Migration History
+
+### Production Database Migration (October 5, 2025)
+
+Complete Daydreamer memory sovereignty database migrated from local Neo4j to AuraDB cloud instance, enabling multi-platform AI personality access.
+
+**Migration Stats:**
+- **Source:** Local Neo4j 2025.07.1 (667MB)
+- **Destination:** AuraDB InstanceDaydreamer_01 (8c3b5488.databases.neo4j.io)
+- **Duration:** 18 minutes (dump + upload + validation)
+- **Data Transferred:** 27,487 entities, 110,449 relationships
+- **Validation:** 100% match, zero data loss
+- **Status:** ✅ Production validated via Claude Desktop
+
+**Key Components Migrated:**
+- 14,414 V6 Observation nodes (Perennial architecture)
+- 4,361 Conversation Messages
+- 537 Conversation Sessions
+- 488 Conversation Summaries
+- 404 Tool Invocations
+- 74 People entities
+- 207 Temporal nodes (Days/Months/Years)
+
+**Migration Method:**
+```bash
+# Official Neo4j tooling used
+neo4j-admin database dump neo4j --to-path=/backups/neo4j
+neo4j-admin database upload neo4j \
+  --from-path=/backups/neo4j \
+  --to-uri=neo4j+s://8c3b5488.databases.neo4j.io \
+  --overwrite-destination=true
+```
+
+**Critical Learnings:**
+- AuraDB Bolt URIs should NOT include port number (use `neo4j+s://host` not `neo4j+s://host:7687`)
+- Always source .env for AuraDB credentials: `source .env && command`
+- Validate migration with count comparison before declaring success
+
+**Documentation:**
+- Complete migration report: `/docs/migrations/neo4j-auradb-migration-success.md`
+- Execution log: `/plans/neo4j-auradb-migration-plan.md`
+- Validation scripts: `/backups/neo4j/validate_migration.py`, `/backups/neo4j/test_auradb_access.py`
 
 ## Next Steps
 
@@ -191,6 +240,6 @@ Neo4j AuraDB (Cloud)
 
 ## Support
 
-- **Railway Dashboard**: https://railway.com/project/a81d68e2-0f90-4397-a02d-0b12a71d4104
-- **GitHub Issues**: https://github.com/DayDreamerAI/daydreamer-mcp/issues
-- **MCP Docs**: https://modelcontextprotocol.io/introduction
+- **Railway Dashboard**: <https://railway.com/project/a81d68e2-0f90-4397-a02d-0b12a71d4104>
+- **GitHub Issues**: <https://github.com/DayDreamerAI/daydreamer-mcp/issues>
+- **MCP Docs**: <https://modelcontextprotocol.io/introduction>

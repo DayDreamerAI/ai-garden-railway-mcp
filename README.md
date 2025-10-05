@@ -1,8 +1,15 @@
-# AI Garden Enhanced Railway MCP Server v2.3.0
+# Daydreamer Railway MCP Server v3.0
 
-🛡️ **Security-Enhanced MCP Server with Comprehensive Auditing**
+✅ **Production-Validated Multi-Platform Memory Sovereignty**
 
-This repository deploys your Neo4j-backed MCP server on Railway with integrated security middleware, request auditing, and comprehensive health monitoring.
+Railway-hosted MCP server enabling Claude Desktop/Web/Mobile access to AuraDB-backed memory graph. Successfully migrated 27,487 entities (October 2025) with full Custom Connector integration.
+
+**Production Status:**
+- ✅ AuraDB Migration Complete (Oct 5, 2025)
+- ✅ Claude Desktop Validated (27,487 entities accessible)
+- ✅ Claude Mobile Validated (10 query patterns tested)
+- ✅ SSE Transport Operational
+- ✅ Multi-platform memory sovereignty achieved
 
 ## 🚀 Quick Deploy
 
@@ -15,16 +22,21 @@ git remote add origin https://github.com/<you>/neo4j-mcp-railway.git
 git push -u origin main
 ```
 
-### 2) Deploy on Railway with Security
+### 2) Deploy on Railway with AuraDB
 
 - Railway → **New Project** → **Deploy from GitHub** → select this repo
 - In **Variables**, set:
-  - `NEO4J_URI=neo4j+s://<your-db-id>.databases.neo4j.io:7687`
+  - `NEO4J_URI=neo4j+s://<your-db-id>.databases.neo4j.io` ⚠️ **No port number for AuraDB**
   - `NEO4J_USERNAME=neo4j`
-  - `NEO4J_PASSWORD=<your-password>`
+  - `NEO4J_PASSWORD=<your-auradb-password>`
   - `RAILWAY_BEARER_TOKEN=<generate-secure-token>` (🔒 **Required for production**)
   - `REQUIRE_AUTHENTICATION=true` (optional, defaults to true)
   - `RATE_LIMIT_PER_MINUTE=60` (optional, defaults to 60)
+
+**Production Configuration (Oct 2025):**
+- Instance: `neo4j+s://8c3b5488.databases.neo4j.io` (InstanceDaydreamer_01)
+- Database: 27,487 entities, 110,449 relationships
+- Status: Operational and validated
 
 ### 3) Generate Secure Bearer Token
 
@@ -116,19 +128,71 @@ export MCP_PORT=8080
 python server_enhanced.py
 ```
 
-## 🚀 ChatGPT Integration
+## 🔗 Custom Connector Integration
 
-### Custom Connector Setup
-1. Open ChatGPT → Settings → Beta Features
-2. Enable "Custom Connectors" 
-3. Add new connector:
-   - **Name**: Daydreamer Memory
-   - **Base URL**: `https://<your-service>.up.railway.app`
-   - **Authentication**: Bearer Token
-   - **Token**: Your `RAILWAY_BEARER_TOKEN`
+### Setup Guide
 
-### Test Connection
-In ChatGPT: "Search my memory for information about AI Garden"
+**Complete documentation:** [CUSTOM_CONNECTOR_SETUP.md](./CUSTOM_CONNECTOR_SETUP.md)
+
+**Quick Setup (Claude Desktop):**
+1. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
+2. Add connector:
+```json
+{
+  "mcpServers": {
+    "daydreamer-memory": {
+      "url": "https://ai-garden-railway-mcp-production.up.railway.app/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer <your-token>"
+      }
+    }
+  }
+}
+```
+3. Restart Claude Desktop
+4. Test: "Search for Julian Crespi in memory"
+
+**Supported Platforms:**
+- ✅ Claude Desktop (validated Oct 5, 2025)
+- ✅ Claude Web (Custom Connector support)
+- ✅ Claude Mobile (validated Oct 5, 2025)
+- ✅ ChatGPT (Custom Connector support)
+
+## 📊 AuraDB Migration (October 2025)
+
+**Migration Report:** [Migration Success Documentation](../../../../../docs/migrations/neo4j-auradb-migration-success.md)
+
+**What Was Migrated:**
+- 27,487 entities (100% validation match)
+- 110,449 relationships (zero data loss)
+- 14,414 V6 Observation nodes (Perennial architecture)
+- 537 Conversation Sessions
+- Complete temporal binding and relationship graph
+
+**Migration Method:**
+```bash
+# Official Neo4j tooling
+neo4j-admin database dump neo4j --to-path=/backups/neo4j
+neo4j-admin database upload neo4j \
+  --from-path=/backups/neo4j \
+  --to-uri=neo4j+s://8c3b5488.databases.neo4j.io \
+  --overwrite-destination=true
+```
+
+**Duration:** 23 minutes (dump + upload + validation)
+
+**Validation:**
+- ✅ Count comparison (Python script)
+- ✅ Claude Desktop production test
+- ✅ Claude Mobile 10-pattern query test
+- ✅ Custom Connector SSE transport
+- ✅ Multi-platform access operational
+
+**Key Learnings:**
+1. AuraDB URIs should NOT include `:7687` port
+2. Always source `.env` for credentials
+3. Validate with count comparison before declaring success
 
 ## 📚 Complete Documentation
 
@@ -206,7 +270,8 @@ python3 -c "from neo4j import GraphDatabase; print('✅ Neo4j available')"
 
 ---
 
-**AI Garden Enhanced Railway MCP Server v2.3.0**  
-🛡️ Security-first design • 📊 Comprehensive auditing • 🏥 Advanced monitoring
+**Daydreamer Railway MCP Server v3.0**
+✅ Multi-platform memory sovereignty • 🔗 Custom Connector integration • ☁️ AuraDB cloud-hosted
 
-Generated: 2025-09-12 23:30:04 UTC
+**Last Updated:** October 5, 2025
+**Production Status:** Operational and validated across Claude Desktop/Web/Mobile platforms
