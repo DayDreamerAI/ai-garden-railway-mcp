@@ -8,7 +8,7 @@ buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhance
 
 [deploy]
 # MCP server compliant with Model Context Protocol
-startCommand = "python -u minimal_test_server.py"
+startCommand = "python -u minimal_sse_server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"

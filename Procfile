@@ -1,1 +1,1 @@
-web: python -u minimal_test_server.py
+web: python -u minimal_sse_server.py
