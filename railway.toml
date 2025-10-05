@@ -8,7 +8,8 @@ buildCommand = "pip install -r requirements.txt && echo 'Build complete: enhance
 
 [deploy]
 # MCP server compliant with Model Context Protocol
-startCommand = "python -u minimal_sse_server.py"
+# Tier 1: 5 core memory tools (search_nodes, memory_stats, create_entities, add_observations, raw_cypher_query)
+startCommand = "python -u mcp-claude-connector-memory-server.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "never"
