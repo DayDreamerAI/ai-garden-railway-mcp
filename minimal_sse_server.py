@@ -83,7 +83,10 @@ async def execute_cypher(query: str, parameters: dict = None, limit: int = 100):
             result = session.run(query, parameters or {})
             records = []
 
-            for record in result[:limit]:
+            for i, record in enumerate(result):
+                if i >= limit:
+                    break
+
                 record_dict = {}
                 for key in record.keys():
                     value = record[key]
