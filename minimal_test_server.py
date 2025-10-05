@@ -106,6 +106,12 @@ async def handle_mcp_request(data: dict) -> dict:
     request_id = data.get("id")
 
     try:
+        # Handle notifications (no response needed)
+        if method.startswith("notifications/"):
+            logger.info(f"📨 Received notification: {method}")
+            # Notifications don't get responses, return None
+            return None
+
         if method == "initialize":
             result = {
                 "protocolVersion": MCP_VERSION,
@@ -216,6 +222,11 @@ async def handle_http_mcp(request):
         # Regular HTTP POST
         data = await request.json()
         result = await handle_mcp_request(data)
+
+        # Notifications return None and don't get a response
+        if result is None:
+            return web.Response(status=204)  # No Content
+
         return web.json_response(result)
 
 async def health_check(request):
