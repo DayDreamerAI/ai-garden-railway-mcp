@@ -1,1 +1,1 @@
-web: python -u mcp_http_wrapper.py
+web: python -u minimal_test_server.py
