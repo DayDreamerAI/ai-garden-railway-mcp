@@ -227,18 +227,11 @@ async def handle_sse(request):
     sse_sessions[session_id] = response
 
     try:
-        # Send endpoint event (告诉客户端往哪里POST消息)
-        endpoint_message = {
-            "jsonrpc": "2.0",
-            "method": "endpoint",
-            "params": {
-                "uri": f"/messages?session_id={session_id}"
-            }
-        }
-        data = json.dumps(endpoint_message)
-        await response.write(f"event: endpoint\ndata: {data}\n\n".encode())
+        # Send endpoint event with just the URI (MCP SSE spec)
+        endpoint_uri = f"/messages?session_id={session_id}"
+        await response.write(f"event: endpoint\ndata: {endpoint_uri}\n\n".encode())
 
-        logger.info(f"📍 [{session_id[:8]}] Sent endpoint: /messages?session_id={session_id}")
+        logger.info(f"📍 [{session_id[:8]}] Sent endpoint: {endpoint_uri}")
 
         # Keep connection alive
         while True:
