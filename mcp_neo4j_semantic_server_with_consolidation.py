@@ -2025,7 +2025,7 @@ async def main():
         
         # Check for transport mode (SSE or stdio)
         transport_mode = os.getenv("MCP_TRANSPORT", "stdio")
-        port = int(os.getenv("MCP_PORT", "8787"))
+        port = int(os.getenv("PORT", os.getenv("MCP_PORT", "8787")))
         
         if transport_mode == "sse":
             # SSE/HTTP server mode
