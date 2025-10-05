@@ -198,24 +198,20 @@ async def handle_mcp_request(data: dict) -> dict:
 
 async def handle_http_mcp(request):
     """Handle MCP requests over HTTP/SSE"""
-    if request.headers.get('Accept') == 'text/event-stream':
-        # SSE mode
-        response = web.StreamResponse()
-        response.headers['Content-Type'] = 'text/event-stream'
-        response.headers['Cache-Control'] = 'no-cache'
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        await response.prepare(request)
-
-        try:
-            async for line in request.content:
-                if line:
-                    data = json.loads(line.decode())
-                    result = await handle_mcp_request(data)
-                    await response.write(f"data: {json.dumps(result)}\n\n".encode())
-        except Exception as e:
-            logger.error(f"SSE error: {e}")
-
-        return response
+    # Handle GET request (Custom Connector discovery)
+    if request.method == 'GET':
+        # Return SSE endpoint info or redirect to POST
+        return web.json_response({
+            "type": "mcp-server",
+            "version": "1.0.0",
+            "transport": "http-post",
+            "message": "Send MCP JSON-RPC requests via POST to this endpoint",
+            "example": {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json"},
+                "body": {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+            }
+        })
     else:
         # Regular HTTP POST
         data = await request.json()
