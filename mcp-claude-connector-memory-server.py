@@ -316,6 +316,7 @@ async def handle_memory_stats(arguments: dict) -> dict:
 register_tool({
     "name": "create_entities",
     "description": "Create entities with observations",
+    "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
         "properties": {
@@ -386,6 +387,7 @@ async def handle_create_entities(arguments: dict) -> dict:
 register_tool({
     "name": "add_observations",
     "description": "Add observations to existing entity",
+    "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
         "properties": {
@@ -423,6 +425,7 @@ async def handle_add_observations(arguments: dict) -> dict:
 register_tool({
     "name": "raw_cypher_query",
     "description": "Execute raw Cypher query against Neo4j",
+    "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
         "properties": {
