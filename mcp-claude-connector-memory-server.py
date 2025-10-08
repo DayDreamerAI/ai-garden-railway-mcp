@@ -759,15 +759,22 @@ async def handle_sse(request):
 async def handle_post_message(request):
     """POST endpoint - receive JSON-RPC messages"""
     session_id = request.query.get('session_id')
+    test_mode = request.query.get('test_mode', '').lower() == 'true'
 
-    if not session_id or session_id not in sse_sessions:
-        return web.json_response({
-            "jsonrpc": "2.0",
-            "error": {
-                "code": -32000,
-                "message": "Invalid or expired session"
-            }
-        }, status=400)
+    # Bypass session validation in test mode (for development/testing)
+    if not test_mode:
+        if not session_id or session_id not in sse_sessions:
+            return web.json_response({
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32000,
+                    "message": "Invalid or expired session"
+                }
+            }, status=400)
+
+    # Use test session ID if in test mode
+    if test_mode and not session_id:
+        session_id = "test-session"
 
     # Parse JSON-RPC request
     data = await request.json()
@@ -779,8 +786,9 @@ async def handle_post_message(request):
     if response is None:
         return web.Response(status=204)
 
-    # Send response via SSE
-    await send_sse_message(session_id, response)
+    # Send response via SSE (skip if test mode and no active session)
+    if not test_mode or session_id in sse_sessions:
+        await send_sse_message(session_id, response)
 
     # Also return via HTTP
     return web.json_response(response)
