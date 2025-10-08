@@ -61,7 +61,7 @@ SERVER_INFO = {
     "features": {
         "v6_observation_nodes": V6_FEATURES['observation_nodes'],
         "v6_sessions": V6_FEATURES['session_management'],
-        "total_tools": 12  # Will expand to 22
+        "total_tools": 6  # Core tools: search_nodes, memory_stats, create_entities, add_observations, raw_cypher_query, generate_embeddings_batch
     }
 }
 
@@ -456,6 +456,168 @@ async def handle_raw_cypher_query(arguments: dict) -> dict:
         "count": len(results)
     }
 
+# Tool 6: generate_embeddings_batch
+register_tool({
+    "name": "generate_embeddings_batch",
+    "description": "Generate 256-dim JinaV3 embeddings for nodes missing them (solves local driver write failures)",
+    "requiresApproval": False,
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "node_type": {
+                "type": "string",
+                "description": "Node label to process (Observation, ConversationMessage, Entity)",
+                "enum": ["Observation", "ConversationMessage", "ConversationSummary", "Entity"]
+            },
+            "batch_size": {
+                "type": "number",
+                "default": 50,
+                "description": "Number of nodes to process per batch (max 100)"
+            },
+            "test_mode": {
+                "type": "boolean",
+                "default": False,
+                "description": "If true, only process 10 nodes for validation"
+            }
+        },
+        "required": ["node_type"]
+    }
+})
+
+async def handle_generate_embeddings_batch(arguments: dict) -> dict:
+    """
+    Generate embeddings for nodes missing them.
+
+    This solves the AuraDB write failure issue where local Python Neo4j driver
+    sessions don't persist embeddings, but Railway MCP Cypher writes work perfectly.
+    """
+    node_type = arguments["node_type"]
+    batch_size = min(arguments.get("batch_size", 50), 100)  # Cap at 100
+    test_mode = arguments.get("test_mode", False)
+
+    if not JINA_AVAILABLE or not jina_embedder:
+        raise Exception("JinaV3 embedder not available on this server")
+
+    # Determine content property based on node type
+    content_property_map = {
+        "Observation": "content",
+        "ConversationMessage": "text",
+        "ConversationSummary": "summary",
+        "Entity": "observations"  # Will use first observation
+    }
+
+    content_property = content_property_map.get(node_type)
+    if not content_property:
+        raise Exception(f"Unknown node type: {node_type}")
+
+    # Override batch size for test mode
+    if test_mode:
+        batch_size = 10
+        logger.info("🧪 TEST MODE: Processing only 10 nodes")
+
+    # Fetch nodes without embeddings
+    if node_type == "Entity":
+        query = f"""
+            MATCH (n:{node_type})
+            WHERE n.jina_vec_v3 IS NULL
+              AND size(n.observations) > 0
+            RETURN id(n) as node_id, n.name as name, n.observations[0] as text_content
+            LIMIT {batch_size}
+        """
+    else:
+        query = f"""
+            MATCH (n:{node_type})
+            WHERE n.jina_vec_v3 IS NULL
+              AND n.{content_property} IS NOT NULL
+            RETURN id(n) as node_id, n.{content_property} as text_content
+            LIMIT {batch_size}
+        """
+
+    nodes = run_cypher(query)
+
+    if not nodes:
+        return {
+            "status": "complete",
+            "message": f"No {node_type} nodes need embeddings",
+            "processed": 0,
+            "failed": 0
+        }
+
+    # Process each node
+    processed = 0
+    failed = 0
+    timestamp = datetime.now(UTC).isoformat()
+
+    for node in nodes:
+        try:
+            node_id = node['node_id']
+            text_content = node.get('text_content', '')
+
+            if not text_content or len(text_content.strip()) == 0:
+                logger.warning(f"⚠️ Node {node_id} has empty content, skipping")
+                failed += 1
+                continue
+
+            # Generate embedding
+            embedding_vector = jina_embedder.encode_single(text_content, normalize=True)
+            embedding = embedding_vector.tolist() if hasattr(embedding_vector, 'tolist') else list(embedding_vector)
+
+            # Validate dimension
+            if len(embedding) != 256:
+                logger.error(f"❌ Wrong embedding dimension: {len(embedding)} (expected 256)")
+                failed += 1
+                continue
+
+            # Write via Cypher (this works, unlike local driver!)
+            update_query = """
+                MATCH (n) WHERE id(n) = $node_id
+                SET n.jina_vec_v3 = $embedding,
+                    n.embedding_model = 'jinaai/jina-embeddings-v3',
+                    n.embedding_dimensions = 256,
+                    n.embedding_version = 'v3.0',
+                    n.has_embedding = true,
+                    n.embedding_updated = $timestamp
+                RETURN id(n) as updated_id
+            """
+
+            result = run_cypher(update_query, {
+                'node_id': node_id,
+                'embedding': embedding,
+                'timestamp': timestamp
+            })
+
+            if result:
+                processed += 1
+                if processed % 10 == 0:
+                    logger.info(f"✅ Processed {processed}/{len(nodes)} {node_type} nodes")
+            else:
+                logger.warning(f"⚠️ No result for node {node_id}, may not exist")
+                failed += 1
+
+        except Exception as e:
+            logger.error(f"❌ Failed to process node {node.get('node_id', '?')}: {e}")
+            failed += 1
+
+    # Count remaining nodes
+    remaining_query = f"""
+        MATCH (n:{node_type})
+        WHERE n.jina_vec_v3 IS NULL
+        RETURN count(n) as remaining
+    """
+    remaining_result = run_cypher(remaining_query)
+    remaining = remaining_result[0]['remaining'] if remaining_result else 0
+
+    return {
+        "status": "success" if failed == 0 else "partial",
+        "node_type": node_type,
+        "processed": processed,
+        "failed": failed,
+        "remaining_without_embeddings": remaining,
+        "batch_size": batch_size,
+        "test_mode": test_mode,
+        "message": f"Processed {processed} {node_type} nodes, {failed} failures, {remaining} remaining"
+    }
+
 # =================== TOOL DISPATCHER ===================
 
 TOOL_HANDLERS = {
@@ -463,7 +625,8 @@ TOOL_HANDLERS = {
     "memory_stats": handle_memory_stats,
     "create_entities": handle_create_entities,
     "add_observations": handle_add_observations,
-    "raw_cypher_query": handle_raw_cypher_query
+    "raw_cypher_query": handle_raw_cypher_query,
+    "generate_embeddings_batch": handle_generate_embeddings_batch
 }
 
 async def execute_tool(tool_name: str, arguments: dict) -> dict:
