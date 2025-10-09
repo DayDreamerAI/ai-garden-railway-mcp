@@ -521,7 +521,7 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
             MATCH (n:{node_type})
             WHERE n.jina_vec_v3 IS NULL
               AND size(n.observations) > 0
-            RETURN id(n) as node_id, n.name as name, n.observations[0] as text_content
+            RETURN elementId(n) as node_id, n.name as name, n.observations[0] as text_content
             LIMIT {batch_size}
         """
     else:
@@ -529,7 +529,7 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
             MATCH (n:{node_type})
             WHERE n.jina_vec_v3 IS NULL
               AND n.{content_property} IS NOT NULL
-            RETURN id(n) as node_id, n.{content_property} as text_content
+            RETURN elementId(n) as node_id, n.{content_property} as text_content
             LIMIT {batch_size}
         """
 
@@ -570,14 +570,14 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
 
             # Write via Cypher (this works, unlike local driver!)
             update_query = """
-                MATCH (n) WHERE id(n) = $node_id
+                MATCH (n) WHERE elementId(n) = $node_id
                 SET n.jina_vec_v3 = $embedding,
                     n.embedding_model = 'jinaai/jina-embeddings-v3',
                     n.embedding_dimensions = 256,
                     n.embedding_version = 'v3.0',
                     n.has_embedding = true,
                     n.embedding_updated = $timestamp
-                RETURN id(n) as updated_id
+                RETURN elementId(n) as updated_id
             """
 
             result = run_cypher(update_query, {
