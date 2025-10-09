@@ -239,13 +239,20 @@ async def handle_search_nodes(arguments: dict) -> dict:
         if JINA_AVAILABLE and jina_embedder and use_v3:
             query_embedding = jina_embedder.encode_single(query, normalize=True)
 
+            # Calculate scan limit in Python (Cypher params are VALUES not EXPRESSIONS)
+            # Need VERY high multiplier: 19,263 system artifacts dominate index (93% of nodes)
+            # Neo4j Wizard Fix: Use positive label check (e:SemanticEntity) instead of 5 negative checks
+            # 1000x multiplier ensures semantic entities appear even if ranked lower than system artifacts
+            scan_limit = limit * 1000
+
             entity_results = run_cypher("""
-                CALL db.index.vector.queryNodes('entity_jina_vec_v3_idx', $limit, $query_embedding)
+                CALL db.index.vector.queryNodes('entity_jina_vec_v3_idx', $scan_limit, $query_embedding)
                 YIELD node AS e, score
+                WHERE e:SemanticEntity
                 RETURN e.name AS name, e.entityType AS entityType,
                        e.observations[0..3] AS observations, score AS similarity
                 ORDER BY similarity DESC LIMIT $limit
-            """, {'query_embedding': query_embedding, 'limit': limit})
+            """, {'query_embedding': query_embedding, 'limit': limit, 'scan_limit': scan_limit})
 
             return {
                 "entities": entity_results,
@@ -256,9 +263,9 @@ async def handle_search_nodes(arguments: dict) -> dict:
                 }
             }
         else:
-            # Text fallback
+            # Text fallback (use SemanticEntity label for efficient filtering)
             results = run_cypher("""
-                MATCH (e:Entity)
+                MATCH (e:SemanticEntity)
                 WHERE ANY(obs IN e.observations WHERE obs CONTAINS $query)
                    OR e.name CONTAINS $query
                 RETURN e.name AS name, e.entityType AS entityType,
