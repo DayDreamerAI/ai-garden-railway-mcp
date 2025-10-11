@@ -10,10 +10,11 @@ Architecture:
 - Production-Ready: AuraDB, JinaV3 embeddings, comprehensive error handling
 
 Created: October 5, 2025
-Version: 1.0.1 (Railway Edition)
+Version: 1.0.2 (Railway Edition)
 Last Updated: October 11, 2025
 
-Recent Fixes:
+Recent Fixes (Oct 11, 2025):
+- DateTime/Date serialization: Fix "'DateTime' object is not iterable" JSON serialization errors
 - Lazy embedder initialization: Retry JinaV3 initialization on first use if startup failed
 - Canonical schema: Complete V6 property name consistency (100% validation passing)
 - Recursion prevention: Theme classifier bypass using 'general' theme
@@ -73,7 +74,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "1.0.1"
+SERVER_VERSION = "1.0.2"
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -165,9 +166,27 @@ async def initialize_neo4j():
         return False
 
 def run_cypher(query: str, parameters: Dict = None, limit: int = 100) -> List[Dict]:
-    """Execute Cypher query with error handling"""
+    """Execute Cypher query with error handling and proper temporal serialization"""
     if not neo4j_connected:
         raise Exception("Neo4j not connected")
+
+    def serialize_value(value):
+        """Serialize Neo4j values to JSON-compatible types"""
+        # Handle Neo4j temporal types (DateTime, Date, Time)
+        if hasattr(value, 'isoformat'):
+            return value.isoformat()
+        # Handle Node/Relationship objects
+        elif hasattr(value, '__dict__') and hasattr(value, 'items'):
+            return {k: serialize_value(v) for k, v in dict(value).items()}
+        # Handle lists
+        elif isinstance(value, list):
+            return [serialize_value(item) for item in value]
+        # Handle dictionaries
+        elif isinstance(value, dict):
+            return {k: serialize_value(v) for k, v in value.items()}
+        # Return primitive types as-is
+        else:
+            return value
 
     try:
         with driver.session() as session:
@@ -180,11 +199,7 @@ def run_cypher(query: str, parameters: Dict = None, limit: int = 100) -> List[Di
 
                 record_dict = {}
                 for key in record.keys():
-                    value = record[key]
-                    if hasattr(value, '__dict__'):
-                        record_dict[key] = dict(value)
-                    else:
-                        record_dict[key] = value
+                    record_dict[key] = serialize_value(record[key])
                 records.append(record_dict)
 
             return records
