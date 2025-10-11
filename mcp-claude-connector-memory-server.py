@@ -319,10 +319,10 @@ async def handle_memory_stats(arguments: dict) -> dict:
         "server_info": SERVER_INFO
     }
 
-# Tool 3: create_entities (simplified V5 for now, V6 will be added later)
+# Tool 3: create_entities (V5/V6 Hybrid with Dual-Write)
 register_tool({
     "name": "create_entities",
-    "description": "Create entities with observations",
+    "description": "Create entities with observations and V6 observation nodes",
     "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
@@ -345,19 +345,57 @@ register_tool({
 })
 
 async def handle_create_entities(arguments: dict) -> dict:
-    """Create entities with V5 compatibility"""
+    """Create entities with V5/V6 dual-write"""
     entities_data = arguments.get("entities", [])
     created_entities = []
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    iso_timestamp = datetime.now(UTC).isoformat()
+
+    # Auto-create ConversationSession for MCP tool invocations (V6 requirement)
+    session_id = f"session_{iso_timestamp}_{str(uuid4())[:8]}"
+
+    all_observation_ids = []
+    total_embeddings = 0
+    v6_completed = V6_FEATURES['observation_nodes']
+
+    # Create session for V6 operations (if enabled)
+    if V6_FEATURES['observation_nodes']:
+        try:
+            run_cypher("""
+                MERGE (session:ConversationSession:Perennial:Entity {session_id: $session_id})
+                ON CREATE SET
+                    session.id = randomUUID(),
+                    session.created_at = $created_at,
+                    session.context = $context,
+                    session.source = 'railway_mcp_server'
+
+                // Temporal binding
+                MERGE (day:Day {date: date()})
+                MERGE (month:Month {year_month: date().year + '-' + date().month})
+                MERGE (year:Year {year: date().year})
+                MERGE (session)-[:OCCURRED_ON]->(day)
+                MERGE (day)-[:PART_OF_MONTH]->(month)
+                MERGE (month)-[:PART_OF_YEAR]->(year)
+
+                RETURN session.session_id as session_id
+            """, {
+                'session_id': session_id,
+                'created_at': iso_timestamp,
+                'context': f"MCP Tool: create_entities"
+            })
+        except Exception as e:
+            logger.error(f"Session creation failed: {e}")
+            v6_completed = False
 
     for entity in entities_data:
         observations = entity.get('observations', [])
         timestamped_observations = [f"[{timestamp}] {obs}" for obs in observations]
 
-        # Generate embedding if available
+        # Generate entity embedding if available
         entity_text = f"{entity['name']} ({entity['entityType']}): {' '.join(timestamped_observations)}"
-        embedding = get_cached_embedding(entity_text)
+        entity_embedding = get_cached_embedding(entity_text)
 
+        # V5 Write: Create entity with observations array
         create_query = """
             CREATE (e:Entity {
                 name: $name,
@@ -369,31 +407,103 @@ async def handle_create_entities(arguments: dict) -> dict:
             })
             %s
             RETURN e.name as name
-        """ % ("SET e.jina_vec_v3 = $embedding" if embedding else "")
+        """ % ("SET e.jina_vec_v3 = $embedding" if entity_embedding else "")
 
         params = {
             'name': entity['name'],
             'entityType': entity['entityType'],
             'observations': timestamped_observations,
-            'has_embedding': embedding is not None
+            'has_embedding': entity_embedding is not None
         }
-        if embedding:
-            params['embedding'] = embedding
+        if entity_embedding:
+            params['embedding'] = entity_embedding
 
         result = run_cypher(create_query, params)
 
         if result:
             created_entities.append(entity['name'])
 
+            # V6 Write: Create observation nodes (if enabled)
+            if V6_FEATURES['observation_nodes']:
+                try:
+                    for obs_content in observations:
+                        # Generate observation embedding
+                        obs_embedding = get_cached_embedding(obs_content)
+                        has_embedding = obs_embedding is not None
+
+                        # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
+                        obs_result = run_cypher("""
+                            // Validate entity and session exist FIRST
+                            MATCH (entity:Entity {name: $entity_name})
+                            MATCH (session:ConversationSession {session_id: $session_id})
+
+                            // Create observation node with embedding properties
+                            CREATE (o:Observation:Perennial:Entity {
+                                id: randomUUID(),
+                                content: $content,
+                                created_at: $created_at,
+                                timestamp: datetime(),
+                                source: 'mcp_tool',
+                                created_by: 'railway_mcp_v6_handler',
+                                conversation_id: $session_id,
+                                semantic_theme: 'general',
+                                has_embedding: $has_embedding
+                            })
+
+                            // Add embedding vector if available
+                            WITH o, entity, session
+                            """ + ("SET o.jina_vec_v3 = $embedding_vector, " +
+                                  "o.embedding_model = 'jina-embeddings-v3', " +
+                                  "o.embedding_dimensions = 256, " +
+                                  "o.embedding_generated_at = datetime() " if has_embedding else "") + """
+
+                            // Core relationships
+                            MERGE (entity)-[:ENTITY_HAS_OBSERVATION]->(o)
+                            MERGE (session)-[:CONVERSATION_SESSION_ADDED_OBSERVATION]->(entity)
+
+                            // Full temporal binding
+                            MERGE (day:Day {date: date()})
+                            MERGE (month:Month {year_month: date().year + '-' + date().month})
+                            MERGE (year:Year {year: date().year})
+
+                            MERGE (o)-[:OCCURRED_ON]->(day)
+                            MERGE (day)-[:PART_OF_MONTH]->(month)
+                            MERGE (month)-[:PART_OF_YEAR]->(year)
+
+                            RETURN o.id as observation_id, o.has_embedding as has_embedding
+                        """, {
+                            'content': obs_content,
+                            'entity_name': entity['name'],
+                            'session_id': session_id,
+                            'created_at': iso_timestamp,
+                            'has_embedding': has_embedding,
+                            'embedding_vector': obs_embedding
+                        })
+
+                        if obs_result:
+                            all_observation_ids.append(obs_result[0]['observation_id'])
+                            if obs_result[0]['has_embedding']:
+                                total_embeddings += 1
+
+                except Exception as e:
+                    logger.error(f"V6 observation creation failed for {entity['name']}: {e}")
+                    v6_completed = False
+
     return {
+        "v5_completed": True,
+        "v6_completed": v6_completed,
         "created_entities": created_entities,
-        "entity_count": len(created_entities)
+        "entity_count": len(created_entities),
+        "session_id": session_id if v6_completed else None,
+        "observation_ids": all_observation_ids,
+        "observations_created": len(all_observation_ids),
+        "embeddings_generated": total_embeddings
     }
 
-# Tool 4: add_observations (simplified V5)
+# Tool 4: add_observations (V5/V6 Hybrid with Dual-Write)
 register_tool({
     "name": "add_observations",
-    "description": "Add observations to existing entity",
+    "description": "Add observations to existing entity with V6 observation nodes",
     "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
@@ -406,27 +516,135 @@ register_tool({
 })
 
 async def handle_add_observations(arguments: dict) -> dict:
-    """Add observations to entity"""
+    """Add observations to entity with V5/V6 dual-write"""
     entity_name = arguments["entity_name"]
     observations = arguments["observations"]
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    iso_timestamp = datetime.now(UTC).isoformat()
     timestamped_observations = [f"[{timestamp}] {obs}" for obs in observations]
 
-    result = run_cypher("""
+    # Auto-create ConversationSession for MCP tool invocations (V6 requirement)
+    session_id = f"session_{iso_timestamp}_{str(uuid4())[:8]}"
+
+    observation_ids = []
+    embeddings_generated = 0
+    v6_completed = V6_FEATURES['observation_nodes']
+
+    # V5 Write: Update observations array (backward compatibility)
+    v5_result = run_cypher("""
         MATCH (e:Entity {name: $name})
         SET e.observations = e.observations + $new_observations,
             e.updated = datetime()
         RETURN e.name as name, size(e.observations) as observation_count
     """, {'name': entity_name, 'new_observations': timestamped_observations})
 
-    if result:
-        return {
-            "entity_name": entity_name,
-            "observations_added": len(observations),
-            "total_observations": result[0].get('observation_count', 0)
-        }
-    else:
+    if not v5_result:
         raise Exception(f"Entity not found: {entity_name}")
+
+    # V6 Write: Create observation nodes (if enabled)
+    if V6_FEATURES['observation_nodes']:
+        try:
+            # Create session for tool invocation
+            run_cypher("""
+                MERGE (session:ConversationSession:Perennial:Entity {session_id: $session_id})
+                ON CREATE SET
+                    session.id = randomUUID(),
+                    session.created_at = $created_at,
+                    session.context = $context,
+                    session.source = 'railway_mcp_server'
+
+                // Temporal binding
+                MERGE (day:Day {date: date()})
+                MERGE (month:Month {year_month: date().year + '-' + date().month})
+                MERGE (year:Year {year: date().year})
+                MERGE (session)-[:OCCURRED_ON]->(day)
+                MERGE (day)-[:PART_OF_MONTH]->(month)
+                MERGE (month)-[:PART_OF_YEAR]->(year)
+
+                RETURN session.session_id as session_id
+            """, {
+                'session_id': session_id,
+                'created_at': iso_timestamp,
+                'context': f"MCP Tool: add_observations to {entity_name}"
+            })
+
+            # Create V6 observation nodes
+            for obs_content in observations:
+                # Generate embedding if available
+                embedding_vector = get_cached_embedding(obs_content)
+                has_embedding = embedding_vector is not None
+
+                # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
+                obs_result = run_cypher("""
+                    // Validate entity and session exist FIRST
+                    MATCH (entity:Entity {name: $entity_name})
+                    MATCH (session:ConversationSession {session_id: $session_id})
+
+                    // Create observation node with embedding properties and full temporal binding
+                    CREATE (o:Observation:Perennial:Entity {
+                        id: randomUUID(),
+                        content: $content,
+                        created_at: $created_at,
+                        timestamp: datetime(),
+                        source: 'mcp_tool',
+                        created_by: 'railway_mcp_v6_handler',
+                        conversation_id: $session_id,
+                        semantic_theme: 'general',
+
+                        // Embedding properties
+                        has_embedding: $has_embedding
+                    })
+
+                    // Add embedding vector if available
+                    WITH o, entity, session
+                    """ + ("SET o.jina_vec_v3 = $embedding_vector, " +
+                          "o.embedding_model = 'jina-embeddings-v3', " +
+                          "o.embedding_dimensions = 256, " +
+                          "o.embedding_generated_at = datetime() " if has_embedding else "") + """
+
+                    // Core relationships
+                    MERGE (entity)-[:ENTITY_HAS_OBSERVATION]->(o)
+                    MERGE (session)-[:CONVERSATION_SESSION_ADDED_OBSERVATION]->(entity)
+
+                    // Full temporal binding: Day → Month → Year hierarchy
+                    MERGE (day:Day {date: date()})
+                    MERGE (month:Month {year_month: date().year + '-' + date().month})
+                    MERGE (year:Year {year: date().year})
+
+                    MERGE (o)-[:OCCURRED_ON]->(day)
+                    MERGE (day)-[:PART_OF_MONTH]->(month)
+                    MERGE (month)-[:PART_OF_YEAR]->(year)
+
+                    RETURN o.id as observation_id, o.has_embedding as has_embedding
+                """, {
+                    'content': obs_content,
+                    'entity_name': entity_name,
+                    'session_id': session_id,
+                    'created_at': iso_timestamp,
+                    'has_embedding': has_embedding,
+                    'embedding_vector': embedding_vector
+                })
+
+                if obs_result:
+                    observation_ids.append(obs_result[0]['observation_id'])
+                    if obs_result[0]['has_embedding']:
+                        embeddings_generated += 1
+
+        except Exception as e:
+            logger.error(f"V6 observation creation failed: {e}")
+            v6_completed = False
+
+    return {
+        "v5_completed": True,
+        "v6_completed": v6_completed,
+        "entity_name": entity_name,
+        "observations_added": len(observations),
+        "total_observations": v5_result[0].get('observation_count', 0),
+        "session_id": session_id if v6_completed else None,
+        "observation_ids": observation_ids,
+        "observations_created": len(observation_ids),
+        "embeddings_generated": embeddings_generated
+    }
 
 # Tool 5: raw_cypher_query
 register_tool({
