@@ -27,12 +27,41 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from typing import Any, List, Dict, Optional
 
-# Load environment variables
-load_dotenv()
-
-# Configure logging
+# Configure logging first
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Import V6 canonical schema (single source of truth for property names)
+try:
+    from v6_schema import (
+        ObservationProperties as OBS,
+        EntityProperties as ENT,
+        ConversationSessionProperties as SESS,
+        NodeLabels as LABELS,
+        RelationshipTypes as RELS,
+    )
+    logger.info("✅ V6 canonical schema imported successfully")
+except ImportError as e:
+    logger.error(f"❌ CRITICAL: V6 schema not available: {e}")
+    # Define fallback constants (should never happen in production)
+    class OBS:
+        JINA_VEC_V3 = "jina_vec_v3"
+        CONVERSATION_ID = "conversation_id"
+        CONTENT = "content"
+        HAS_EMBEDDING = "has_embedding"
+        SEMANTIC_THEME = "semantic_theme"
+        EMBEDDING_MODEL = "embedding_model"
+        EMBEDDING_DIMENSIONS = "embedding_dimensions"
+        EMBEDDING_GENERATED_AT = "embedding_generated_at"
+    class RELS:
+        ENTITY_HAS_OBSERVATION = "ENTITY_HAS_OBSERVATION"
+        CONVERSATION_SESSION_ADDED_OBSERVATION = "CONVERSATION_SESSION_ADDED_OBSERVATION"
+        OCCURRED_ON = "OCCURRED_ON"
+        PART_OF_MONTH = "PART_OF_MONTH"
+        PART_OF_YEAR = "PART_OF_YEAR"
+
+# Load environment variables
+load_dotenv()
 
 # =================== CONFIGURATION ===================
 
@@ -407,7 +436,7 @@ async def handle_create_entities(arguments: dict) -> dict:
             })
             %s
             RETURN e.name as name
-        """ % ("SET e.jina_vec_v3 = $embedding" if entity_embedding else "")
+        """ % (f"SET e.{ENT.JINA_VEC_V3} = $embedding" if entity_embedding else "")
 
         params = {
             'name': entity['name'],
@@ -432,46 +461,47 @@ async def handle_create_entities(arguments: dict) -> dict:
                         has_embedding = obs_embedding is not None
 
                         # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
-                        obs_result = run_cypher("""
+                        # Uses V6 canonical schema constants for all property names
+                        obs_result = run_cypher(f"""
                             // Validate entity and session exist FIRST
-                            MATCH (entity:Entity {name: $entity_name})
-                            MATCH (session:ConversationSession {session_id: $session_id})
+                            MATCH (entity:Entity {{name: $entity_name}})
+                            MATCH (session:ConversationSession {{session_id: $session_id}})
 
-                            // Create observation node with embedding properties
-                            CREATE (o:Observation:Perennial:Entity {
+                            // Create observation node with embedding properties (canonical schema)
+                            CREATE (o:Observation:Perennial:Entity {{
                                 id: randomUUID(),
-                                content: $content,
+                                {OBS.CONTENT}: $content,
                                 created_at: $created_at,
                                 timestamp: datetime(),
                                 source: 'mcp_tool',
                                 created_by: 'railway_mcp_v6_handler',
-                                conversation_id: $session_id,
-                                semantic_theme: 'general',
-                                has_embedding: $has_embedding
-                            })
+                                {OBS.CONVERSATION_ID}: $session_id,
+                                {OBS.SEMANTIC_THEME}: 'general',
+                                {OBS.HAS_EMBEDDING}: $has_embedding
+                            }})
 
-                            // Add embedding vector if available
+                            // Add embedding vector if available (canonical schema)
                             WITH o, entity, session
-                            """ + ("SET o.jina_vec_v3 = $embedding_vector, " +
-                                  "o.embedding_model = 'jina-embeddings-v3', " +
-                                  "o.embedding_dimensions = 256, " +
-                                  "o.embedding_generated_at = datetime() " if has_embedding else "") + """
+                            """ + (f"SET o.{OBS.JINA_VEC_V3} = $embedding_vector, " +
+                                  f"o.{OBS.EMBEDDING_MODEL} = 'jina-embeddings-v3', " +
+                                  f"o.{OBS.EMBEDDING_DIMENSIONS} = 256, " +
+                                  f"o.{OBS.EMBEDDING_GENERATED_AT} = datetime() " if has_embedding else "") + f"""
 
-                            // Core relationships
-                            MERGE (entity)-[:ENTITY_HAS_OBSERVATION]->(o)
-                            MERGE (session)-[:CONVERSATION_SESSION_ADDED_OBSERVATION]->(entity)
+                            // Core relationships (canonical schema)
+                            MERGE (entity)-[:{RELS.ENTITY_HAS_OBSERVATION}]->(o)
+                            MERGE (session)-[:{RELS.CONVERSATION_SESSION_ADDED_OBSERVATION}]->(entity)
 
-                            // Full temporal binding
-                            MERGE (day:Day {date: date()})
-                            MERGE (month:Month {year_month: date().year + '-' + date().month})
-                            MERGE (year:Year {year: date().year})
+                            // Full temporal binding (canonical schema)
+                            MERGE (day:Day {{date: date()}})
+                            MERGE (month:Month {{year_month: date().year + '-' + date().month}})
+                            MERGE (year:Year {{year: date().year}})
 
-                            MERGE (o)-[:OCCURRED_ON]->(day)
-                            MERGE (day)-[:PART_OF_MONTH]->(month)
-                            MERGE (month)-[:PART_OF_YEAR]->(year)
+                            MERGE (o)-[:{RELS.OCCURRED_ON}]->(day)
+                            MERGE (day)-[:{RELS.PART_OF_MONTH}]->(month)
+                            MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
 
-                            RETURN o.id as observation_id, o.has_embedding as has_embedding
-                        """, {
+                            RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
+                        """, {{
                             'content': obs_content,
                             'entity_name': entity['name'],
                             'session_id': session_id,
@@ -575,48 +605,49 @@ async def handle_add_observations(arguments: dict) -> dict:
                 has_embedding = embedding_vector is not None
 
                 # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
-                obs_result = run_cypher("""
+                # Uses V6 canonical schema constants for all property names
+                obs_result = run_cypher(f"""
                     // Validate entity and session exist FIRST
-                    MATCH (entity:Entity {name: $entity_name})
-                    MATCH (session:ConversationSession {session_id: $session_id})
+                    MATCH (entity:Entity {{name: $entity_name}})
+                    MATCH (session:ConversationSession {{session_id: $session_id}})
 
-                    // Create observation node with embedding properties and full temporal binding
-                    CREATE (o:Observation:Perennial:Entity {
+                    // Create observation node with embedding properties and full temporal binding (canonical schema)
+                    CREATE (o:Observation:Perennial:Entity {{
                         id: randomUUID(),
-                        content: $content,
+                        {OBS.CONTENT}: $content,
                         created_at: $created_at,
                         timestamp: datetime(),
                         source: 'mcp_tool',
                         created_by: 'railway_mcp_v6_handler',
-                        conversation_id: $session_id,
-                        semantic_theme: 'general',
+                        {OBS.CONVERSATION_ID}: $session_id,
+                        {OBS.SEMANTIC_THEME}: 'general',
 
-                        // Embedding properties
-                        has_embedding: $has_embedding
-                    })
+                        // Embedding properties (canonical schema)
+                        {OBS.HAS_EMBEDDING}: $has_embedding
+                    }})
 
-                    // Add embedding vector if available
+                    // Add embedding vector if available (canonical schema)
                     WITH o, entity, session
-                    """ + ("SET o.jina_vec_v3 = $embedding_vector, " +
-                          "o.embedding_model = 'jina-embeddings-v3', " +
-                          "o.embedding_dimensions = 256, " +
-                          "o.embedding_generated_at = datetime() " if has_embedding else "") + """
+                    """ + (f"SET o.{OBS.JINA_VEC_V3} = $embedding_vector, " +
+                          f"o.{OBS.EMBEDDING_MODEL} = 'jina-embeddings-v3', " +
+                          f"o.{OBS.EMBEDDING_DIMENSIONS} = 256, " +
+                          f"o.{OBS.EMBEDDING_GENERATED_AT} = datetime() " if has_embedding else "") + f"""
 
-                    // Core relationships
-                    MERGE (entity)-[:ENTITY_HAS_OBSERVATION]->(o)
-                    MERGE (session)-[:CONVERSATION_SESSION_ADDED_OBSERVATION]->(entity)
+                    // Core relationships (canonical schema)
+                    MERGE (entity)-[:{RELS.ENTITY_HAS_OBSERVATION}]->(o)
+                    MERGE (session)-[:{RELS.CONVERSATION_SESSION_ADDED_OBSERVATION}]->(entity)
 
-                    // Full temporal binding: Day → Month → Year hierarchy
-                    MERGE (day:Day {date: date()})
-                    MERGE (month:Month {year_month: date().year + '-' + date().month})
-                    MERGE (year:Year {year: date().year})
+                    // Full temporal binding: Day → Month → Year hierarchy (canonical schema)
+                    MERGE (day:Day {{date: date()}})
+                    MERGE (month:Month {{year_month: date().year + '-' + date().month}})
+                    MERGE (year:Year {{year: date().year}})
 
-                    MERGE (o)-[:OCCURRED_ON]->(day)
-                    MERGE (day)-[:PART_OF_MONTH]->(month)
-                    MERGE (month)-[:PART_OF_YEAR]->(year)
+                    MERGE (o)-[:{RELS.OCCURRED_ON}]->(day)
+                    MERGE (day)-[:{RELS.PART_OF_MONTH}]->(month)
+                    MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
 
-                    RETURN o.id as observation_id, o.has_embedding as has_embedding
-                """, {
+                    RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
+                """, {{
                     'content': obs_content,
                     'entity_name': entity_name,
                     'session_id': session_id,
@@ -740,11 +771,11 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
         batch_size = 10
         logger.info("🧪 TEST MODE: Processing only 10 nodes")
 
-    # Fetch nodes without embeddings
+    # Fetch nodes without embeddings (canonical schema)
     if node_type == "Entity":
         query = f"""
             MATCH (n:{node_type})
-            WHERE n.jina_vec_v3 IS NULL
+            WHERE n.{ENT.JINA_VEC_V3} IS NULL
               AND size(n.observations) > 0
             RETURN elementId(n) as node_id, n.name as name, n.observations[0] as text_content
             LIMIT {batch_size}
@@ -752,7 +783,7 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
     else:
         query = f"""
             MATCH (n:{node_type})
-            WHERE n.jina_vec_v3 IS NULL
+            WHERE n.{OBS.JINA_VEC_V3} IS NULL
               AND n.{content_property} IS NOT NULL
             RETURN elementId(n) as node_id, n.{content_property} as text_content
             LIMIT {batch_size}
@@ -793,14 +824,20 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
                 failed += 1
                 continue
 
-            # Write via Cypher (this works, unlike local driver!)
-            update_query = """
+            # Write via Cypher (canonical schema)
+            # Dynamically determine which properties to use based on node type
+            jina_prop = ENT.JINA_VEC_V3 if node_type == "Entity" else OBS.JINA_VEC_V3
+            has_embedding_prop = ENT.HAS_EMBEDDING if node_type == "Entity" else OBS.HAS_EMBEDDING
+            embedding_model_prop = ENT.EMBEDDING_MODEL if node_type == "Entity" else OBS.EMBEDDING_MODEL
+            embedding_dims_prop = ENT.EMBEDDING_DIMENSIONS if node_type == "Entity" else OBS.EMBEDDING_DIMENSIONS
+
+            update_query = f"""
                 MATCH (n) WHERE elementId(n) = $node_id
-                SET n.jina_vec_v3 = $embedding,
-                    n.embedding_model = 'jinaai/jina-embeddings-v3',
-                    n.embedding_dimensions = 256,
+                SET n.{jina_prop} = $embedding,
+                    n.{embedding_model_prop} = 'jinaai/jina-embeddings-v3',
+                    n.{embedding_dims_prop} = 256,
                     n.embedding_version = 'v3.0',
-                    n.has_embedding = true,
+                    n.{has_embedding_prop} = true,
                     n.embedding_updated = $timestamp
                 RETURN elementId(n) as updated_id
             """
@@ -823,10 +860,11 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
             logger.error(f"❌ Failed to process node {node.get('node_id', '?')}: {e}")
             failed += 1
 
-    # Count remaining nodes
+    # Count remaining nodes (canonical schema)
+    jina_prop = ENT.JINA_VEC_V3 if node_type == "Entity" else OBS.JINA_VEC_V3
     remaining_query = f"""
         MATCH (n:{node_type})
-        WHERE n.jina_vec_v3 IS NULL
+        WHERE n.{jina_prop} IS NULL
         RETURN count(n) as remaining
     """
     remaining_result = run_cypher(remaining_query)
