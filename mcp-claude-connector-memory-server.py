@@ -10,7 +10,13 @@ Architecture:
 - Production-Ready: AuraDB, JinaV3 embeddings, comprehensive error handling
 
 Created: October 5, 2025
-Version: 1.0.0 (Railway Edition)
+Version: 1.0.1 (Railway Edition)
+Last Updated: October 11, 2025
+
+Recent Fixes:
+- Lazy embedder initialization: Retry JinaV3 initialization on first use if startup failed
+- Canonical schema: Complete V6 property name consistency (100% validation passing)
+- Recursion prevention: Theme classifier bypass using 'general' theme
 """
 
 import os
@@ -67,7 +73,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.0.1"
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -190,9 +196,22 @@ def run_cypher(query: str, parameters: Dict = None, limit: int = 100) -> List[Di
 # =================== EMBEDDINGS & CACHING ===================
 
 def get_cached_embedding(text: str, force_regenerate: bool = False) -> Optional[List[float]]:
-    """Get embedding with caching for performance"""
-    if not JINA_AVAILABLE or not jina_embedder:
+    """Get embedding with caching for performance and lazy initialization"""
+    global jina_embedder
+
+    if not JINA_AVAILABLE:
         return None
+
+    # Lazy initialization: retry if startup initialization failed (Oct 11, 2025 fix)
+    if not jina_embedder:
+        try:
+            logger.info("🔄 Lazy-initializing JinaV3 embedder...")
+            jina_embedder = JinaV3OptimizedEmbedder(target_dimensions=256, use_quantization=True)
+            _ = jina_embedder.encode_single("warmup", normalize=True)
+            logger.info("✅ JinaV3 embedder lazy-initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ JinaV3 lazy initialization failed: {e}")
+            return None
 
     cache_key = hashlib.md5(text.encode()).hexdigest()
 
