@@ -358,7 +358,7 @@ async def handle_memory_stats(arguments: dict) -> dict:
     """Get comprehensive memory statistics"""
     stats = run_cypher("""
         MATCH (e:Entity) WITH count(e) as entities
-        MATCH (r) WITH entities, count(r) as relationships
+        MATCH ()-[r]->() WITH entities, count(r) as relationships
         MATCH (c:Chunk) WITH entities, relationships, count(c) as chunks
         OPTIONAL MATCH (cs:ConversationSession) WITH entities, relationships, chunks, count(cs) as sessions
         OPTIONAL MATCH (o:Observation) WITH entities, relationships, chunks, sessions, count(o) as observations
