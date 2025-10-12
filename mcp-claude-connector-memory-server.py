@@ -535,7 +535,7 @@ async def handle_create_entities(arguments: dict) -> dict:
                             MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
 
                             RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
-                        """, {{
+                        """, {
                             'content': obs_content,
                             'entity_name': entity['name'],
                             'session_id': session_id,
@@ -681,7 +681,7 @@ async def handle_add_observations(arguments: dict) -> dict:
                     MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
 
                     RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
-                """, {{
+                """, {
                     'content': obs_content,
                     'entity_name': entity_name,
                     'session_id': session_id,
