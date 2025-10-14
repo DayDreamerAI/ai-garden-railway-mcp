@@ -39,15 +39,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Import V6 canonical schema (single source of truth for property names)
+# Consolidated from v6_schema.py → property_names.py (Oct 13, 2025)
 try:
-    from v6_schema import (
+    from property_names import (
         ObservationProperties as OBS,
         EntityProperties as ENT,
         ConversationSessionProperties as SESS,
         NodeLabels as LABELS,
         RelationshipTypes as RELS,
     )
-    logger.info("✅ V6 canonical schema imported successfully")
+    logger.info("✅ V6 canonical schema imported successfully from property_names.py")
 except ImportError as e:
     logger.error(f"❌ CRITICAL: V6 schema not available: {e}")
     # Define fallback constants (should never happen in production)
