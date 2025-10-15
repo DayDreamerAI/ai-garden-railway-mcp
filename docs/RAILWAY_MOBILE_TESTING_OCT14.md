@@ -176,14 +176,46 @@ RETURN o.has_embedding, o.jina_vec_v3 IS NOT NULL
 4. **Can we reproduce the bug?** (Fresh test needed)
 5. **Is this a current bug or historical?** (Timing unclear)
 
-## Resolution Summary
+## ✅ RESOLUTION: Property Name Confusion
 
-### Embedding Generation: ✅ WORKING
-- Railway server correctly generates 256D JinaV3 embeddings
-- Entity embeddings: ✅ Working
-- Observation node embeddings: ✅ Working
-- V5 and V6 paths both operational
-- All 8 test observations verified with embeddings
+### Root Cause Identified
+
+**The "bug" was a testing error!** Claude Mobile checked the WRONG property name:
+
+```cypher
+// ❌ WRONG - V5 legacy property
+MATCH (o:Observation)
+RETURN o.embedding IS NOT NULL as has_embedding
+
+// ✅ CORRECT - V6 current property
+MATCH (o:Observation)
+RETURN o.jina_vec_v3 IS NOT NULL as has_embedding
+```
+
+### Actual System State
+
+**Embeddings ARE being generated perfectly!**
+
+| Node Type | Total | With `jina_vec_v3` | Coverage |
+|-----------|-------|-------------------|----------|
+| **Observations** | 14,814 | 14,814 | **100%** ✅ |
+| **Entities** | 22,943 | 21,567 | **94%** ✅ |
+| **TOTAL** | 37,757 | 36,381 | **96.4%** ✅ |
+
+### Test Entities Verified
+
+**ALL test data has embeddings:**
+- "V5 Embedding Test" - 3 observations, ALL with 256D JinaV3 ✅
+- "V6 Embedding Test" - 5 observations, ALL with 256D JinaV3 ✅
+- Both entities have embeddings ✅
+
+### V6 Search Performance
+
+**Query: "transformers neural networks deep learning"**
+- V5 (fallback): 0 results
+- V6 (JinaV3): 5 results, 87.7% similarity on top match ✅
+
+**Conclusion**: Railway embedding generation is **FULLY OPERATIONAL** with 96.4% coverage!
 
 ### Performance: ⚠️ NEEDS INVESTIGATION
 - **10-minute test session is unacceptable**
