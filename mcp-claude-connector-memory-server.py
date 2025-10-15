@@ -10,10 +10,15 @@ Architecture:
 - Production-Ready: AuraDB, JinaV3 embeddings, comprehensive error handling
 
 Created: October 5, 2025
-Version: 1.0.2 (Railway Edition)
-Last Updated: October 11, 2025
+Version: 1.0.3 (Railway Edition)
+Last Updated: October 15, 2025
 
-Recent Fixes (Oct 11, 2025):
+Recent Fixes (Oct 15, 2025):
+- CPU optimization: Platform-aware device selection (CPU for Railway Linux, MPS for local MacBook)
+- Resource monitoring: Disabled MacBookResourceMonitor on production (83-89% CPU → <30% expected)
+- Reduced MPS availability check overhead on Railway Linux servers
+
+Previous Fixes (Oct 11, 2025):
 - DateTime/Date serialization: Fix "'DateTime' object is not iterable" JSON serialization errors
 - Lazy embedder initialization: Retry JinaV3 initialization on first use if startup failed
 - Canonical schema: Complete V6 property name consistency (100% validation passing)
@@ -21,6 +26,8 @@ Recent Fixes (Oct 11, 2025):
 """
 
 import os
+import sys
+import platform
 import json
 import asyncio
 import logging
@@ -75,13 +82,20 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "1.0.2"
+SERVER_VERSION = "1.0.3"
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
 NEO4J_URI = os.environ.get('NEO4J_URI')
 NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME', 'neo4j')
 NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
+
+# Platform Detection for Embedder Device (Oct 15, 2025)
+# Railway runs Linux, local development uses MacBook (Darwin/MPS)
+PLATFORM = platform.system()
+IS_RAILWAY = PLATFORM == "Linux" or os.getenv("RAILWAY_ENVIRONMENT") is not None
+EMBEDDER_DEVICE = "cpu" if IS_RAILWAY else "mps"
+logger.info(f"🖥️  Platform: {PLATFORM}, Device: {EMBEDDER_DEVICE} (Railway: {IS_RAILWAY})")
 
 # V6 Feature Flags
 V6_FEATURES = {
@@ -222,9 +236,14 @@ def get_cached_embedding(text: str, force_regenerate: bool = False) -> Optional[
     if not jina_embedder:
         try:
             logger.info("🔄 Lazy-initializing JinaV3 embedder...")
-            jina_embedder = JinaV3OptimizedEmbedder(target_dimensions=256, use_quantization=True)
+            # Use platform-appropriate device (CPU for Railway, MPS for MacBook)
+            jina_embedder = JinaV3OptimizedEmbedder(
+                target_dimensions=256,
+                use_quantization=True,
+                device=EMBEDDER_DEVICE
+            )
             _ = jina_embedder.encode_single("warmup", normalize=True)
-            logger.info("✅ JinaV3 embedder lazy-initialized successfully")
+            logger.info(f"✅ JinaV3 embedder lazy-initialized successfully (device={EMBEDDER_DEVICE})")
         except Exception as e:
             logger.warning(f"⚠️ JinaV3 lazy initialization failed: {e}")
             return None
@@ -1136,9 +1155,14 @@ async def initialize_server():
     # Initialize JinaV3 if available
     if JINA_AVAILABLE:
         try:
-            jina_embedder = JinaV3OptimizedEmbedder(target_dimensions=256, use_quantization=True)
+            # Use platform-appropriate device (CPU for Railway, MPS for MacBook)
+            jina_embedder = JinaV3OptimizedEmbedder(
+                target_dimensions=256,
+                use_quantization=True,
+                device=EMBEDDER_DEVICE
+            )
             _ = jina_embedder.encode_single("warmup", normalize=True)
-            logger.info("✅ JinaV3 embedder initialized")
+            logger.info(f"✅ JinaV3 embedder initialized (device={EMBEDDER_DEVICE})")
         except Exception as e:
             logger.warning(f"⚠️ JinaV3 initialization failed: {e}")
             jina_embedder = None
