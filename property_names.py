@@ -50,6 +50,9 @@ class NodeLabels:
     # MVCM concept extraction
     CONCEPT = "Concept"
 
+    # GraphRAG Phase 2: Leiden Community Summaries
+    COMMUNITY_SUMMARY = "CommunitySummary"  # L2 community summaries with embeddings
+
 
 # ============================================================================
 # RELATIONSHIP TYPES (SYSTEM/PROTECTED)
@@ -84,6 +87,9 @@ class RelationshipTypes:
     OBSERVATION_MENTIONS_CONCEPT = "OBSERVATION_MENTIONS_CONCEPT"
     ENTITY_RELATED_TO = "ENTITY_RELATED_TO"
 
+    # GraphRAG Phase 2: Community membership
+    MEMBER_OF_COMMUNITY = "MEMBER_OF_COMMUNITY"  # Entity → CommunitySummary
+
 
 # ============================================================================
 # PROTECTED RELATIONSHIP TYPES SET (for schema_enforcement.py)
@@ -107,6 +113,12 @@ def get_protected_relationship_types() -> Set[str]:
         RelationshipTypes.MESSAGE_HAS_CHUNK,
         RelationshipTypes.OBSERVATION_MENTIONS_CONCEPT,
         RelationshipTypes.ENTITY_RELATED_TO,
+
+        # GraphRAG Phase 2 infrastructure (added Oct 17, 2025)
+        "MEMBER_OF_COMMUNITY",
+
+        # Tool tracking infrastructure (added Oct 17, 2025)
+        "CONVERSATION_SESSION_USED_TOOL",
     }
 
 
@@ -242,6 +254,31 @@ class MonthProperties:
 class YearProperties:
     """Canonical property names for Year nodes"""
     YEAR = "year"  # Integer year
+
+
+class CommunitySummaryProperties:
+    """
+    Canonical property names for CommunitySummary nodes (GraphRAG Phase 2)
+
+    Phase 2 Schema:
+    - Label: :CommunitySummary:Entity:Perennial
+    - Embedding: jina_vec_v3 (256D JinaV3)
+    - Relationship: Entity -[:MEMBER_OF_COMMUNITY]-> CommunitySummary
+
+    Note: For common properties (name, entityType, embeddings, created_at, created_by),
+    use EntityProperties constants to avoid duplication:
+    - EntityProperties.NAME
+    - EntityProperties.ENTITY_TYPE
+    - EntityProperties.JINA_VEC_V3
+    - EntityProperties.HAS_EMBEDDING
+    - EntityProperties.CREATED_AT
+    - EntityProperties.CREATED_BY
+    """
+    # Unique Phase 2 Properties
+    COMMUNITY_ID = "community_id"  # Integer Leiden community ID
+    SUMMARY = "summary"  # GPT-4 generated community summary text
+    MEMBER_COUNT = "member_count"  # Number of entities in community
+    PERENNIAL_VERSION = "perennial_version"  # V6 version tag
 
 
 # ============================================================================
