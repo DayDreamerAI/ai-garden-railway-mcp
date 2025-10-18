@@ -113,7 +113,8 @@ SERVER_INFO = {
     "features": {
         "v6_observation_nodes": V6_FEATURES['observation_nodes'],
         "v6_sessions": V6_FEATURES['session_management'],
-        "total_tools": 6  # Core tools: search_nodes, memory_stats, create_entities, add_observations, raw_cypher_query, generate_embeddings_batch
+        "graphrag_phase3": True,  # Leiden communities search
+        "total_tools": 8  # Core tools + GraphRAG: search_nodes, memory_stats, create_entities, add_observations, raw_cypher_query, generate_embeddings_batch, graphrag_global_search, graphrag_local_search
     }
 }
 
@@ -179,6 +180,15 @@ try:
 except ImportError:
     OBSERVATION_SEARCH_AVAILABLE = False
     logger.warning("⚠️ Observation search not available")
+
+# Import GraphRAG Phase 3 Tools (Leiden communities search)
+try:
+    from mcp_integration import graphrag_global_search_handler, graphrag_local_search_handler, load_feature_flags
+    GRAPHRAG_PHASE3_AVAILABLE = True
+    logger.info("✅ GraphRAG Phase 3 tools (Leiden communities) imported")
+except ImportError as e:
+    GRAPHRAG_PHASE3_AVAILABLE = False
+    logger.warning(f"⚠️ GraphRAG Phase 3 not available: {e}")
 
 # =================== JINA V3 EMBEDDER ===================
 
@@ -797,6 +807,78 @@ async def handle_generate_embeddings_batch(arguments: dict) -> dict:
         "message": f"Processed {processed} {node_type} nodes, {failed} failures, {remaining} remaining"
     }
 
+# Tool 7: graphrag_global_search (Leiden communities - Phase 3)
+register_tool({
+    "name": "graphrag_global_search",
+    "description": "Global search for synthesis questions using Leiden community-level knowledge (GraphRAG Phase 3)",
+    "requiresApproval": False,
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Natural language question for community-level synthesis"},
+            "limit": {"type": "number", "default": 5, "description": "Maximum communities to retrieve (1-20)"},
+            "min_similarity": {"type": "number", "default": 0.6, "description": "Minimum cosine similarity threshold (0.0-1.0)"},
+            "token_budget": {"type": "number", "default": 10000, "description": "Maximum tokens for context assembly (1000-20000)"}
+        },
+        "required": ["query"]
+    }
+})
+
+async def handle_graphrag_global_search(arguments: dict) -> dict:
+    """GraphRAG Global Search - Leiden community-level synthesis (Phase 3)"""
+    if not GRAPHRAG_PHASE3_AVAILABLE:
+        return {"error": "GraphRAG Phase 3 not available"}
+
+    try:
+        result = await graphrag_global_search_handler(
+            neo4j_driver=driver,
+            query=arguments["query"],
+            limit=arguments.get("limit", 5),
+            min_similarity=arguments.get("min_similarity", 0.6),
+            token_budget=arguments.get("token_budget", 10000)
+        )
+        return result
+    except Exception as e:
+        logger.error(f"GraphRAG global search error: {e}")
+        return {"error": str(e)}
+
+# Tool 8: graphrag_local_search (Leiden communities - Phase 3)
+register_tool({
+    "name": "graphrag_local_search",
+    "description": "Local search for entity neighborhood exploration using Leiden communities (GraphRAG Phase 3)",
+    "requiresApproval": False,
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "entity_name": {"type": "string", "description": "Name of entity to explore (supports aliases)"},
+            "depth": {"type": "number", "default": 2, "description": "Neighborhood depth: 1 or 2 hops"},
+            "hop1_limit": {"type": "number", "default": 20, "description": "Maximum 1-hop neighbors (1-50)"},
+            "hop2_limit": {"type": "number", "default": 10, "description": "Maximum 2-hop neighbors (1-30)"},
+            "observation_limit": {"type": "number", "default": 10, "description": "Maximum observations per entity (1-20)"}
+        },
+        "required": ["entity_name"]
+    }
+})
+
+async def handle_graphrag_local_search(arguments: dict) -> dict:
+    """GraphRAG Local Search - Entity neighborhood exploration (Phase 3)"""
+    if not GRAPHRAG_PHASE3_AVAILABLE:
+        return {"error": "GraphRAG Phase 3 not available"}
+
+    try:
+        result = await graphrag_local_search_handler(
+            neo4j_driver=driver,
+            entity_name=arguments["entity_name"],
+            depth=arguments.get("depth", 2),
+            hop1_limit=arguments.get("hop1_limit", 20),
+            hop2_limit=arguments.get("hop2_limit", 10),
+            observation_limit=arguments.get("observation_limit", 10)
+        )
+        return result
+    except Exception as e:
+        logger.error(f"GraphRAG local search error: {e}")
+        return {"error": str(e)}
+
 # =================== TOOL DISPATCHER ===================
 
 TOOL_HANDLERS = {
@@ -805,7 +887,9 @@ TOOL_HANDLERS = {
     "create_entities": handle_create_entities,
     "add_observations": handle_add_observations,
     "raw_cypher_query": handle_raw_cypher_query,
-    "generate_embeddings_batch": handle_generate_embeddings_batch
+    "generate_embeddings_batch": handle_generate_embeddings_batch,
+    "graphrag_global_search": handle_graphrag_global_search,
+    "graphrag_local_search": handle_graphrag_local_search
 }
 
 async def execute_tool(tool_name: str, arguments: dict) -> dict:
