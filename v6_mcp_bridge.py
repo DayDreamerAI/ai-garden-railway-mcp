@@ -653,8 +653,9 @@ class V6MCPBridge:
                             MERGE (entity)-[:{RELS.ENTITY_HAS_OBSERVATION}]->(o)
                             MERGE (session)-[:{RELS.CONVERSATION_SESSION_ADDED_OBSERVATION}]->(entity)
 
-                            // Temporal binding (canonical schema)
-                            MERGE (day:Day {{date: date()}})
+                            // Temporal binding (canonical schema - FIXED Oct 18, 2025)
+                            // Use toString(date()) to match canonical schema (string not Date object)
+                            MERGE (day:Day {{date: toString(date())}})
                             MERGE (o)-[:{RELS.OCCURRED_ON}]->(day)
 
                             RETURN o.id as observation_id

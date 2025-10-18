@@ -817,8 +817,7 @@ register_tool({
         "properties": {
             "query": {"type": "string", "description": "Natural language question for community-level synthesis"},
             "limit": {"type": "number", "default": 5, "description": "Maximum communities to retrieve (1-20)"},
-            "min_similarity": {"type": "number", "default": 0.6, "description": "Minimum cosine similarity threshold (0.0-1.0)"},
-            "token_budget": {"type": "number", "default": 10000, "description": "Maximum tokens for context assembly (1000-20000)"}
+            "min_similarity": {"type": "number", "default": 0.6, "description": "Minimum cosine similarity threshold (0.0-1.0)"}
         },
         "required": ["query"]
     }
@@ -834,8 +833,7 @@ async def handle_graphrag_global_search(arguments: dict) -> dict:
             neo4j_driver=driver,
             query=arguments["query"],
             limit=arguments.get("limit", 5),
-            min_similarity=arguments.get("min_similarity", 0.6),
-            token_budget=arguments.get("token_budget", 10000)
+            min_similarity=arguments.get("min_similarity", 0.6)
         )
         return result
     except Exception as e:

@@ -14,33 +14,53 @@ from global_search import GlobalSearch, GlobalSearchError
 from local_search import LocalSearch, LocalSearchError
 
 
-# Feature flags location
+# Feature flags - now using environment variables for Railway compatibility
+import os
+
+# Feature flags file (legacy, only used if env vars not set)
 FEATURE_FLAGS_PATH = Path("/tmp/graphrag_phase3_flags.json")
 
 
 def load_feature_flags() -> Dict[str, bool]:
     """
-    Load GraphRAG Phase 3 feature flags.
+    Load GraphRAG Phase 3 feature flags from environment variables or file.
+
+    Priority:
+    1. Environment variables (GRAPHRAG_ENABLED, etc.)
+    2. Feature flags JSON file
+    3. Defaults (Phase 2 enabled, Phase 3 disabled)
 
     Returns:
         Dictionary of feature flags
     """
-    if not FEATURE_FLAGS_PATH.exists():
-        # Default flags (all disabled)
+    # Try environment variables first (Railway-compatible)
+    if os.getenv("GRAPHRAG_ENABLED") is not None:
         return {
-            "graphrag_enabled": False,
-            "graphrag_global_search": False,
-            "graphrag_local_search": False,
+            "graphrag_enabled": os.getenv("GRAPHRAG_ENABLED", "false").lower() == "true",
+            "graphrag_global_search": os.getenv("GRAPHRAG_GLOBAL_SEARCH", "false").lower() == "true",
+            "graphrag_local_search": os.getenv("GRAPHRAG_LOCAL_SEARCH", "false").lower() == "true",
             "graphrag_community_summaries": True,  # Phase 2 complete
             "graphrag_community_embeddings": True,  # Phase 2 complete
             "graphrag_vector_index": True  # Phase 2 complete
         }
 
-    try:
-        with open(FEATURE_FLAGS_PATH, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    # Try feature flags file (legacy)
+    if FEATURE_FLAGS_PATH.exists():
+        try:
+            with open(FEATURE_FLAGS_PATH, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    # Default flags (Phase 2 enabled, Phase 3 disabled)
+    return {
+        "graphrag_enabled": False,
+        "graphrag_global_search": False,
+        "graphrag_local_search": False,
+        "graphrag_community_summaries": True,  # Phase 2 complete
+        "graphrag_community_embeddings": True,  # Phase 2 complete
+        "graphrag_vector_index": True  # Phase 2 complete
+    }
 
 
 def check_feature_flags_enabled() -> tuple[bool, Dict[str, bool]]:
