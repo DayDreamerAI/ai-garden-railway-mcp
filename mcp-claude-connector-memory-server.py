@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 """
-Daydreamer MCP Memory Server - Railway SSE Edition
-Full-featured memory server with SSE transport for Custom Connector integration.
+Daydreamer MCP Memory Server - Railway SSE Edition v2.0
+V6-compliant memory server with SSE transport for Custom Connector integration.
 
 Architecture:
 - SSE Dual-Endpoint: GET /sse (connection) + POST /messages (JSON-RPC)
-- 22 Memory Tools: Core ops, conversation tools, advanced search
-- V6 Integration: Observation nodes, session management, temporal binding
-- Production-Ready: AuraDB, JinaV3 embeddings, comprehensive error handling
+- V6 MCP Bridge: Canonical observation creation (matches stdio server v5.0)
+- V6-Only Operation: V5 deprecated (no observations arrays)
+- Production-Ready: AuraDB, JinaV3 embeddings, schema enforcement
 
 Created: October 5, 2025
-Version: 1.0.3 (Railway Edition)
-Last Updated: October 15, 2025
+Version: 2.0.0 (V6 Bridge Migration)
+Last Updated: October 18, 2025
 
-Recent Fixes (Oct 15, 2025):
-- CPU optimization: Platform-aware device selection (CPU for Railway Linux, MPS for local MacBook)
-- Resource monitoring: Disabled MacBookResourceMonitor on production (83-89% CPU → <30% expected)
-- Reduced MPS availability check overhead on Railway Linux servers
+V6 Bridge Migration (Oct 18, 2025):
+- Adopted V6 MCP Bridge architecture from stdio server v5.0
+- V5 functionality completely removed (V6-only operation)
+- Added schema enforcement (GraphRAG Phase 1 Foundation)
+- Added conversation tools and observation search
+- 100% V6 compliance: No timestamp property, canonical Month schema, semantic classification
 
-Previous Fixes (Oct 11, 2025):
-- DateTime/Date serialization: Fix "'DateTime' object is not iterable" JSON serialization errors
-- Lazy embedder initialization: Retry JinaV3 initialization on first use if startup failed
-- Canonical schema: Complete V6 property name consistency (100% validation passing)
-- Recursion prevention: Theme classifier bypass using 'general' theme
+Previous Fixes (Oct 15, 2025):
+- CPU optimization: Platform-aware device selection
+- DateTime/Date serialization fixes
+- Canonical schema consistency
 """
 
 import os
@@ -82,7 +83,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "1.0.3"
+SERVER_VERSION = "2.0.0"  # V6 Bridge Migration
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -123,6 +124,7 @@ sse_sessions = {}  # session_id -> response stream
 jina_embedder = None
 embedding_cache = {}
 MAX_CACHE_SIZE = 1000
+v6_bridge = None  # V6 MCP Bridge (initialized after Neo4j connection)
 
 # Protected entities for personality preservation
 PROTECTED_ENTITIES = [
@@ -133,6 +135,50 @@ PROTECTED_ENTITIES = [
     "Memory Sovereignty Architecture (MSA)",
     "Personality Bootstrap Component (PBC)"
 ]
+
+# =================== V6 COMPONENTS ===================
+
+# Import V6 MCP Bridge (canonical V6 observation creation from stdio v5.0)
+try:
+    from v6_mcp_bridge import V6MCPBridge
+    V6_BRIDGE_AVAILABLE = True
+    logger.info("✅ V6 MCP Bridge imported successfully")
+except ImportError as e:
+    V6_BRIDGE_AVAILABLE = False
+    logger.error(f"❌ CRITICAL: V6 MCP Bridge not available: {e}")
+
+# Import Schema Enforcement (GraphRAG Phase 1 Foundation)
+try:
+    from schema_enforcement import (
+        validate_entities,
+        validate_relationships,
+        SchemaEnforcementError
+    )
+    SCHEMA_ENFORCEMENT_AVAILABLE = True
+    SCHEMA_ENFORCEMENT_STRICT = os.getenv('SCHEMA_ENFORCEMENT_STRICT', 'false').lower() == 'true'
+    logger.info(f"✅ Schema enforcement available (strict mode: {SCHEMA_ENFORCEMENT_STRICT})")
+except ImportError:
+    SCHEMA_ENFORCEMENT_AVAILABLE = False
+    SCHEMA_ENFORCEMENT_STRICT = False
+    logger.warning("⚠️ Schema enforcement not available")
+
+# Import Conversation Tools (V6 conversation queries)
+try:
+    from tools.conversation_tools import ConversationTools
+    CONVERSATION_TOOLS_AVAILABLE = True
+    logger.info("✅ Conversation tools imported")
+except ImportError:
+    CONVERSATION_TOOLS_AVAILABLE = False
+    logger.warning("⚠️ Conversation tools not available")
+
+# Import Observation Search (MVCM)
+try:
+    from tools.observation_search import search_observations, format_search_results
+    OBSERVATION_SEARCH_AVAILABLE = True
+    logger.info("✅ Observation search tools imported")
+except ImportError:
+    OBSERVATION_SEARCH_AVAILABLE = False
+    logger.warning("⚠️ Observation search not available")
 
 # =================== JINA V3 EMBEDDER ===================
 
@@ -148,8 +194,8 @@ except ImportError:
 # =================== NEO4J CONNECTION ===================
 
 async def initialize_neo4j():
-    """Initialize Neo4j connection with retry logic"""
-    global driver, neo4j_connected
+    """Initialize Neo4j connection with retry logic and V6 bridge"""
+    global driver, neo4j_connected, v6_bridge
 
     if neo4j_connected:
         return True
@@ -174,6 +220,19 @@ async def initialize_neo4j():
 
         neo4j_connected = True
         logger.info("✅ Neo4j connected successfully")
+
+        # Initialize V6 MCP Bridge (canonical V6 observation creation)
+        if V6_BRIDGE_AVAILABLE:
+            try:
+                v6_bridge = V6MCPBridge(driver)
+                logger.info("✅ V6 MCP Bridge initialized")
+            except Exception as e:
+                logger.error(f"❌ V6 Bridge initialization failed: {e}")
+                v6_bridge = None
+        else:
+            logger.error("❌ V6 Bridge unavailable - observation creation will fail")
+            v6_bridge = None
+
         return True
 
     except Exception as e:
@@ -402,10 +461,10 @@ async def handle_memory_stats(arguments: dict) -> dict:
         "server_info": SERVER_INFO
     }
 
-# Tool 3: create_entities (V5/V6 Hybrid with Dual-Write)
+# Tool 3: create_entities (V6-ONLY - V5 Deprecated Oct 18, 2025)
 register_tool({
     "name": "create_entities",
-    "description": "Create entities with observations and V6 observation nodes",
+    "description": "Create entities with V6 observation nodes (V6-only, no V5 arrays)",
     "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
@@ -428,166 +487,65 @@ register_tool({
 })
 
 async def handle_create_entities(arguments: dict) -> dict:
-    """Create entities with V5/V6 dual-write"""
+    """
+    Create entities with V6 observation nodes (V6-only, Oct 18 2025)
+
+    Uses V6MCPBridge for canonical observation creation.
+    No V5 observations arrays created (V5 deprecated).
+    Matches stdio server v5.0 architecture.
+    """
+    global v6_bridge
+
     entities_data = arguments.get("entities", [])
-    created_entities = []
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    iso_timestamp = datetime.now(UTC).isoformat()
 
-    # Auto-create ConversationSession for MCP tool invocations (V6 requirement)
-    session_id = f"session_{iso_timestamp}_{str(uuid4())[:8]}"
-
-    all_observation_ids = []
-    total_embeddings = 0
-    v6_completed = V6_FEATURES['observation_nodes']
-
-    # Create session for V6 operations (if enabled)
-    if V6_FEATURES['observation_nodes']:
-        try:
-            run_cypher("""
-                MERGE (session:ConversationSession:Perennial:Entity {session_id: $session_id})
-                ON CREATE SET
-                    session.id = randomUUID(),
-                    session.created_at = $created_at,
-                    session.context = $context,
-                    session.source = 'railway_mcp_server'
-
-                // Temporal binding
-                MERGE (day:Day {date: date()})
-                MERGE (month:Month {year_month: date().year + '-' + date().month})
-                MERGE (year:Year {year: date().year})
-                MERGE (session)-[:OCCURRED_ON]->(day)
-                MERGE (day)-[:PART_OF_MONTH]->(month)
-                MERGE (month)-[:PART_OF_YEAR]->(year)
-
-                RETURN session.session_id as session_id
-            """, {
-                'session_id': session_id,
-                'created_at': iso_timestamp,
-                'context': f"MCP Tool: create_entities"
-            })
-        except Exception as e:
-            logger.error(f"Session creation failed: {e}")
-            v6_completed = False
-
-    for entity in entities_data:
-        observations = entity.get('observations', [])
-        timestamped_observations = [f"[{timestamp}] {obs}" for obs in observations]
-
-        # Generate entity embedding if available
-        entity_text = f"{entity['name']} ({entity['entityType']}): {' '.join(timestamped_observations)}"
-        entity_embedding = get_cached_embedding(entity_text)
-
-        # V5 Write: Create entity with observations array
-        create_query = """
-            CREATE (e:Entity {
-                name: $name,
-                entityType: $entityType,
-                observations: $observations,
-                created: datetime(),
-                created_by: 'railway_mcp_server',
-                has_embedding: $has_embedding
-            })
-            %s
-            RETURN e.name as name
-        """ % (f"SET e.{ENT.JINA_VEC_V3} = $embedding" if entity_embedding else "")
-
-        params = {
-            'name': entity['name'],
-            'entityType': entity['entityType'],
-            'observations': timestamped_observations,
-            'has_embedding': entity_embedding is not None
-        }
-        if entity_embedding:
-            params['embedding'] = entity_embedding
-
-        result = run_cypher(create_query, params)
-
-        if result:
-            created_entities.append(entity['name'])
-
-            # V6 Write: Create observation nodes (if enabled)
-            if V6_FEATURES['observation_nodes']:
-                try:
-                    for obs_content in observations:
-                        # Generate observation embedding
-                        obs_embedding = get_cached_embedding(obs_content)
-                        has_embedding = obs_embedding is not None
-
-                        # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
-                        # Uses V6 canonical schema constants for all property names
-                        obs_result = run_cypher(f"""
-                            // Validate entity and session exist FIRST
-                            MATCH (entity:Entity {{name: $entity_name}})
-                            MATCH (session:ConversationSession {{session_id: $session_id}})
-
-                            // Create observation node with embedding properties (canonical schema)
-                            CREATE (o:Observation:Perennial:Entity {{
-                                id: randomUUID(),
-                                {OBS.CONTENT}: $content,
-                                created_at: $created_at,
-                                timestamp: datetime(),
-                                source: 'mcp_tool',
-                                created_by: 'railway_mcp_v6_handler',
-                                {OBS.CONVERSATION_ID}: $session_id,
-                                {OBS.SEMANTIC_THEME}: 'general',
-                                {OBS.HAS_EMBEDDING}: $has_embedding
-                            }})
-
-                            // Add embedding vector if available (canonical schema)
-                            WITH o, entity, session
-                            """ + (f"SET o.{OBS.JINA_VEC_V3} = $embedding_vector, " +
-                                  f"o.{OBS.EMBEDDING_MODEL} = 'jina-embeddings-v3', " +
-                                  f"o.{OBS.EMBEDDING_DIMENSIONS} = 256, " +
-                                  f"o.{OBS.EMBEDDING_GENERATED_AT} = datetime() " if has_embedding else "") + f"""
-
-                            // Core relationships (canonical schema)
-                            MERGE (entity)-[:{RELS.ENTITY_HAS_OBSERVATION}]->(o)
-                            MERGE (session)-[:{RELS.CONVERSATION_SESSION_ADDED_OBSERVATION}]->(entity)
-
-                            // Full temporal binding (canonical schema)
-                            MERGE (day:Day {{date: date()}})
-                            MERGE (month:Month {{year_month: date().year + '-' + date().month}})
-                            MERGE (year:Year {{year: date().year}})
-
-                            MERGE (o)-[:{RELS.OCCURRED_ON}]->(day)
-                            MERGE (day)-[:{RELS.PART_OF_MONTH}]->(month)
-                            MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
-
-                            RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
-                        """, {
-                            'content': obs_content,
-                            'entity_name': entity['name'],
-                            'session_id': session_id,
-                            'created_at': iso_timestamp,
-                            'has_embedding': has_embedding,
-                            'embedding_vector': obs_embedding
-                        })
-
-                        if obs_result:
-                            all_observation_ids.append(obs_result[0]['observation_id'])
-                            if obs_result[0]['has_embedding']:
-                                total_embeddings += 1
-
-                except Exception as e:
-                    logger.error(f"V6 observation creation failed for {entity['name']}: {e}")
-                    v6_completed = False
-
-    return {
-        "v5_completed": True,
-        "v6_completed": v6_completed,
-        "created_entities": created_entities,
-        "entity_count": len(created_entities),
-        "session_id": session_id if v6_completed else None,
-        "observation_ids": all_observation_ids,
-        "observations_created": len(all_observation_ids),
-        "embeddings_generated": total_embeddings
+    results = {
+        'v6_compliant': True,
+        'v5_deprecated': True,
+        'created_entities': [],
+        'entity_count': len(entities_data),
+        'schema_warnings': []
     }
 
-# Tool 4: add_observations (V5/V6 Hybrid with Dual-Write)
+    try:
+        # Schema Enforcement: Validate and normalize entity types (GraphRAG Phase 1)
+        if SCHEMA_ENFORCEMENT_AVAILABLE:
+            try:
+                validated_entities, warnings = validate_entities(entities_data, strict=SCHEMA_ENFORCEMENT_STRICT)
+                entities_data = validated_entities  # Use normalized entities
+                results['schema_warnings'] = warnings
+
+                if warnings:
+                    logger.info(f"Schema validation: {len(warnings)} entities normalized/warned")
+                    for warning in warnings[:5]:  # Log first 5
+                        logger.warning(f"  - {warning}")
+
+            except SchemaEnforcementError as e:
+                # In strict mode, validation errors prevent creation
+                logger.error(f"Schema enforcement error (strict mode): {e}")
+                results['error'] = f"Schema validation failed: {str(e)}"
+                results['schema_enforcement_failed'] = True
+                return results
+
+        # V6 Bridge handles all entity creation (canonical V6 implementation)
+        if v6_bridge:
+            bridge_result = await v6_bridge.create_entities_v6_aware(entities_data)
+            results.update(bridge_result)
+            return results
+        else:
+            # If bridge unavailable, this is a configuration error
+            raise ValueError("V6 bridge unavailable - cannot create entities. Check V6 initialization.")
+
+    except Exception as e:
+        logger.error(f"V6 create_entities error: {e}")
+        results['error'] = str(e)
+        results['v6_compliant'] = False
+
+    return results
+
+# Tool 4: add_observations (V6-ONLY - V5 Deprecated Oct 18, 2025)
 register_tool({
     "name": "add_observations",
-    "description": "Add observations to existing entity with V6 observation nodes",
+    "description": "Add observations to entity with V6 observation nodes (V6-only, no V5 arrays)",
     "requiresApproval": False,  # Allow Custom Connector to use without approval
     "inputSchema": {
         "type": "object",
@@ -600,136 +558,40 @@ register_tool({
 })
 
 async def handle_add_observations(arguments: dict) -> dict:
-    """Add observations to entity with V5/V6 dual-write"""
+    """
+    Add observations to entity with V6 observation nodes (V6-only, Oct 18 2025)
+
+    Uses V6MCPBridge for canonical observation creation.
+    No V5 observations array append (V5 deprecated).
+    Matches stdio server v5.0 architecture.
+    """
+    global v6_bridge
+
     entity_name = arguments["entity_name"]
     observations = arguments["observations"]
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    iso_timestamp = datetime.now(UTC).isoformat()
-    timestamped_observations = [f"[{timestamp}] {obs}" for obs in observations]
 
-    # Auto-create ConversationSession for MCP tool invocations (V6 requirement)
-    session_id = f"session_{iso_timestamp}_{str(uuid4())[:8]}"
-
-    observation_ids = []
-    embeddings_generated = 0
-    v6_completed = V6_FEATURES['observation_nodes']
-
-    # V5 Write: Update observations array (backward compatibility)
-    v5_result = run_cypher("""
-        MATCH (e:Entity {name: $name})
-        SET e.observations = e.observations + $new_observations,
-            e.updated = datetime()
-        RETURN e.name as name, size(e.observations) as observation_count
-    """, {'name': entity_name, 'new_observations': timestamped_observations})
-
-    if not v5_result:
-        raise Exception(f"Entity not found: {entity_name}")
-
-    # V6 Write: Create observation nodes (if enabled)
-    if V6_FEATURES['observation_nodes']:
-        try:
-            # Create session for tool invocation
-            run_cypher("""
-                MERGE (session:ConversationSession:Perennial:Entity {session_id: $session_id})
-                ON CREATE SET
-                    session.id = randomUUID(),
-                    session.created_at = $created_at,
-                    session.context = $context,
-                    session.source = 'railway_mcp_server'
-
-                // Temporal binding
-                MERGE (day:Day {date: date()})
-                MERGE (month:Month {year_month: date().year + '-' + date().month})
-                MERGE (year:Year {year: date().year})
-                MERGE (session)-[:OCCURRED_ON]->(day)
-                MERGE (day)-[:PART_OF_MONTH]->(month)
-                MERGE (month)-[:PART_OF_YEAR]->(year)
-
-                RETURN session.session_id as session_id
-            """, {
-                'session_id': session_id,
-                'created_at': iso_timestamp,
-                'context': f"MCP Tool: add_observations to {entity_name}"
-            })
-
-            # Create V6 observation nodes
-            for obs_content in observations:
-                # Generate embedding if available
-                embedding_vector = get_cached_embedding(obs_content)
-                has_embedding = embedding_vector is not None
-
-                # CRITICAL FIX (Oct 10, 2025): MATCH entity and session FIRST
-                # Uses V6 canonical schema constants for all property names
-                obs_result = run_cypher(f"""
-                    // Validate entity and session exist FIRST
-                    MATCH (entity:Entity {{name: $entity_name}})
-                    MATCH (session:ConversationSession {{session_id: $session_id}})
-
-                    // Create observation node with embedding properties and full temporal binding (canonical schema)
-                    CREATE (o:Observation:Perennial:Entity {{
-                        id: randomUUID(),
-                        {OBS.CONTENT}: $content,
-                        created_at: $created_at,
-                        timestamp: datetime(),
-                        source: 'mcp_tool',
-                        created_by: 'railway_mcp_v6_handler',
-                        {OBS.CONVERSATION_ID}: $session_id,
-                        {OBS.SEMANTIC_THEME}: 'general',
-
-                        // Embedding properties (canonical schema)
-                        {OBS.HAS_EMBEDDING}: $has_embedding
-                    }})
-
-                    // Add embedding vector if available (canonical schema)
-                    WITH o, entity, session
-                    """ + (f"SET o.{OBS.JINA_VEC_V3} = $embedding_vector, " +
-                          f"o.{OBS.EMBEDDING_MODEL} = 'jina-embeddings-v3', " +
-                          f"o.{OBS.EMBEDDING_DIMENSIONS} = 256, " +
-                          f"o.{OBS.EMBEDDING_GENERATED_AT} = datetime() " if has_embedding else "") + f"""
-
-                    // Core relationships (canonical schema)
-                    MERGE (entity)-[:{RELS.ENTITY_HAS_OBSERVATION}]->(o)
-                    MERGE (session)-[:{RELS.CONVERSATION_SESSION_ADDED_OBSERVATION}]->(entity)
-
-                    // Full temporal binding: Day → Month → Year hierarchy (canonical schema)
-                    MERGE (day:Day {{date: date()}})
-                    MERGE (month:Month {{year_month: date().year + '-' + date().month}})
-                    MERGE (year:Year {{year: date().year}})
-
-                    MERGE (o)-[:{RELS.OCCURRED_ON}]->(day)
-                    MERGE (day)-[:{RELS.PART_OF_MONTH}]->(month)
-                    MERGE (month)-[:{RELS.PART_OF_YEAR}]->(year)
-
-                    RETURN o.id as observation_id, o.{OBS.HAS_EMBEDDING} as has_embedding
-                """, {
-                    'content': obs_content,
-                    'entity_name': entity_name,
-                    'session_id': session_id,
-                    'created_at': iso_timestamp,
-                    'has_embedding': has_embedding,
-                    'embedding_vector': embedding_vector
-                })
-
-                if obs_result:
-                    observation_ids.append(obs_result[0]['observation_id'])
-                    if obs_result[0]['has_embedding']:
-                        embeddings_generated += 1
-
-        except Exception as e:
-            logger.error(f"V6 observation creation failed: {e}")
-            v6_completed = False
-
-    return {
-        "v5_completed": True,
-        "v6_completed": v6_completed,
-        "entity_name": entity_name,
-        "observations_added": len(observations),
-        "total_observations": v5_result[0].get('observation_count', 0),
-        "session_id": session_id if v6_completed else None,
-        "observation_ids": observation_ids,
-        "observations_created": len(observation_ids),
-        "embeddings_generated": embeddings_generated
+    results = {
+        'v6_compliant': True,
+        'v5_deprecated': True,
+        'observations_added': len(observations)
     }
+
+    try:
+        # V6 bridge handles all observation creation (canonical V6 implementation)
+        if v6_bridge:
+            bridge_result = await v6_bridge.add_observations_v6_aware(entity_name, observations)
+            results.update(bridge_result)
+            return results
+        else:
+            # If bridge unavailable, this is a configuration error
+            raise ValueError("V6 bridge unavailable - cannot add observations. Check V6 initialization.")
+
+    except Exception as e:
+        logger.error(f"V6 add_observations error: {e}")
+        results['error'] = str(e)
+        results['v6_compliant'] = False
+
+    return results
 
 # Tool 5: raw_cypher_query
 register_tool({

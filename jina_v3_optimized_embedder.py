@@ -76,12 +76,8 @@ class MacBookResourceMonitor:
     
     def is_safe_for_operations(self) -> bool:
         """Check if system resources are safe for embedding operations"""
-        # DISABLED FOR BATCH EMBEDDING GENERATION (Oct 7, 2025)
-        # Allow embedding generation regardless of resource usage
-        return True
-        # Original check (disabled):
-        # return (self.current_stats["cpu"] < self.max_cpu_percent and
-        #         self.current_stats["memory_gb"] < self.max_memory_gb)
+        return (self.current_stats["cpu"] < self.max_cpu_percent and 
+                self.current_stats["memory_gb"] < self.max_memory_gb)
     
     def get_stats(self) -> Dict[str, float]:
         """Get current resource statistics"""
@@ -98,48 +94,43 @@ class JinaV3OptimizedEmbedder:
     - Aggressive caching and batching
     """
     
-    def __init__(self,
+    def __init__(self, 
                  model_name: str = "jinaai/jina-embeddings-v3",
                  target_dimensions: int = 256,
                  use_quantization: bool = True,
                  device: str = "mps"):
-
+        
         self.model_name = model_name
         self.target_dimensions = target_dimensions
         self.use_quantization = use_quantization
         self.device = device
         self.max_input_length = 8192  # Jina v3 token capacity
         self.embedding_timeout = float(os.getenv("EMBEDDING_TIMEOUT", "10.0"))  # seconds
-
+        
         # State management
         self.model = None
         self.tokenizer = None
         self.initialized = False
         self.initialization_time = None
         self.using_transformers = False
-
+        
         # Performance tracking
         self.stats = {
             'total_embeddings': 0,
-            'cache_hits': 0,
+            'cache_hits': 0, 
             'mps_operations': 0,
             'cpu_fallbacks': 0,
             'avg_time_ms': 0
         }
-
-        # Resource monitoring - DISABLED on Railway (Oct 15, 2025)
-        # The monitoring itself was causing 83-89% CPU usage via psutil.cpu_percent(interval=1)
-        # Only enable for local MacBook development
-        self.enable_monitoring = os.getenv("ENABLE_RESOURCE_MONITORING", "false").lower() == "true"
-        self.resource_monitor = MacBookResourceMonitor() if self.enable_monitoring else None
-
+        
+        # Resource monitoring
+        self.resource_monitor = MacBookResourceMonitor()
+        
         # Embedding cache (LRU with size limit)
         self.cache = {}
         self.cache_max_size = 1000
-
+        
         logger.info(f"🚀 JinaV3OptimizedEmbedder initialized: {target_dimensions}D, device={device}")
-        if not self.enable_monitoring:
-            logger.info("📊 Resource monitoring disabled (production mode)")
     
     async def encode_single_async(self, text: str, normalize: bool = True) -> List[float]:
         """Async wrapper with timeout to prevent blocking"""
@@ -168,10 +159,9 @@ class JinaV3OptimizedEmbedder:
         start_time = time.time()
         
         try:
-            # Start resource monitoring (only if enabled)
-            if self.resource_monitor:
-                self.resource_monitor.start_monitoring()
-
+            # Start resource monitoring
+            self.resource_monitor.start_monitoring()
+            
             # Check MPS availability
             if self.device == "mps":
                 try:
@@ -278,8 +268,8 @@ class JinaV3OptimizedEmbedder:
             if not self.initialize():
                 return self._generate_fallback_embedding(text)
         
-        # Resource safety check (only if monitoring enabled)
-        if self.resource_monitor and not self.resource_monitor.is_safe_for_operations():
+        # Resource safety check
+        if not self.resource_monitor.is_safe_for_operations():
             logger.warning("⚠️ Resource limits exceeded, using cached/fallback")
             return self._get_cached_or_fallback(text)
         
@@ -360,8 +350,8 @@ class JinaV3OptimizedEmbedder:
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             
-            # Resource check before each batch (only if monitoring enabled)
-            if self.resource_monitor and not self.resource_monitor.is_safe_for_operations():
+            # Resource check before each batch
+            if not self.resource_monitor.is_safe_for_operations():
                 logger.warning(f"⚠️ Resource limits - processing batch {i//batch_size + 1} with fallbacks")
                 results.extend([self._generate_fallback_embedding(text) for text in batch])
                 continue
@@ -418,8 +408,8 @@ class JinaV3OptimizedEmbedder:
     
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get comprehensive performance statistics"""
-        resource_stats = self.resource_monitor.get_stats() if self.resource_monitor else {"cpu": 0, "memory_gb": 0}
-
+        resource_stats = self.resource_monitor.get_stats()
+        
         return {
             "model_info": {
                 "name": self.model_name,
@@ -439,14 +429,13 @@ class JinaV3OptimizedEmbedder:
                 "mps_acceleration": self.device == "mps",
                 "matryoshka_truncation": True,
                 "quantization_active": self.use_quantization,
-                "resource_monitoring": self.resource_monitor.monitoring if self.resource_monitor else False
+                "resource_monitoring": self.resource_monitor.monitoring
             }
         }
     
     def cleanup(self):
         """Cleanup resources"""
-        if self.resource_monitor:
-            self.resource_monitor.monitoring = False
+        self.resource_monitor.monitoring = False
         if self.model:
             del self.model
         self.cache.clear()
