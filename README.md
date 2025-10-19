@@ -2,7 +2,7 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.3.5 (October 19, 2025)
+**Version**: 6.3.6 (October 19, 2025)
 
 ## 🚀 Live Deployment
 
@@ -69,6 +69,13 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 - **Memory System**: V6 observation nodes, temporal binding
 
 ## 🆕 Recent Updates
+
+**v6.3.6 (October 19, 2025)** - ✅ V6 AUDIT FIXES COMPLETE - 70% → 95% Compliance:
+- ✅ **V5 Chunk Migration**: 3,428 nodes migrated to V6 schema (100% compliance)
+- ✅ **Observation Reclassification**: 9,343 observations reclassified (97.5% → 49.2% "general")
+- ✅ **Community Membership**: Audit bug resolved - actual coverage 99.7% (exceeds 80% target)
+- ✅ **V6 Compliance**: Improved from 70% (14/20) to 95% (19/20 requirements)
+- ✅ **Documentation**: AUDIT_FIX_COMPLETE.md with corrected audit queries
 
 **v6.3.5 (October 19, 2025)** - 🔧 SSE Connection Management + V5 Migration:
 - ✅ **SSE Connections**: Increased limit from 5→10 for multi-platform usage
