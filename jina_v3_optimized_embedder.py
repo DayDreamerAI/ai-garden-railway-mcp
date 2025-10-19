@@ -113,6 +113,12 @@ class JinaV3OptimizedEmbedder:
         self.initialized = False
         self.initialization_time = None
         self.using_transformers = False
+
+        # Lazy loading + automatic unloading (Railway memory optimization)
+        self.last_used = None
+        self.idle_timeout = int(os.getenv("MODEL_IDLE_TIMEOUT", "300"))  # 5 minutes default
+        self.auto_unload_enabled = os.getenv("ENABLE_AUTO_UNLOAD", "true").lower() == "true"
+        self._unload_task = None
         
         # Performance tracking
         self.stats = {
@@ -262,12 +268,25 @@ class JinaV3OptimizedEmbedder:
     def encode_single(self, text: str, normalize: bool = True) -> List[float]:
         """
         Encode single text with all optimizations applied
+
+        Railway Optimization (Oct 18, 2025):
+        - Lazy loading: Only load model when actually needed
+        - Auto-unload: Unload after idle timeout to free 3.2GB
+        - Memory protection: Check limits before operations
         """
-        # Lazy initialization
+        # Lazy initialization (only load when needed)
         if not self.initialized:
+            logger.info("🔄 Lazy loading JinaV3 model on-demand...")
             if not self.initialize():
                 return self._generate_fallback_embedding(text)
-        
+
+        # Update last used timestamp
+        self.last_used = time.time()
+
+        # Schedule auto-unload check (Railway memory optimization)
+        if self.auto_unload_enabled and self._unload_task is None:
+            self._schedule_auto_unload()
+
         # Resource safety check
         if not self.resource_monitor.is_safe_for_operations():
             logger.warning("⚠️ Resource limits exceeded, using cached/fallback")
@@ -401,11 +420,72 @@ class JinaV3OptimizedEmbedder:
         import random
         random.seed(hash(text) % 2147483647)
         embedding = [random.gauss(0, 0.1) for _ in range(self.target_dimensions)]
-        
+
         # Normalize
         norm = sum(x**2 for x in embedding) ** 0.5
         return [x / norm for x in embedding] if norm > 0 else embedding
-    
+
+    def _schedule_auto_unload(self):
+        """
+        Schedule automatic model unloading after idle timeout (Railway optimization)
+
+        Created: Oct 18, 2025
+        Purpose: Free 3.2GB memory when model idle for 5+ minutes
+        """
+        import asyncio
+
+        async def check_and_unload():
+            await asyncio.sleep(self.idle_timeout)
+            if self.last_used and (time.time() - self.last_used) >= self.idle_timeout:
+                self.unload_model()
+
+        # Cancel existing task if any
+        if self._unload_task and not self._unload_task.done():
+            self._unload_task.cancel()
+
+        # Schedule new unload check
+        self._unload_task = asyncio.create_task(check_and_unload())
+
+    def unload_model(self):
+        """
+        Unload model to free 3.2GB memory (Railway optimization)
+
+        Created: Oct 18, 2025
+        Purpose: Reduce Railway memory from 6.3GB → ~500MB when idle
+        """
+        if not self.initialized or self.model is None:
+            return
+
+        try:
+            import torch
+            import gc
+
+            logger.info("🧹 Unloading JinaV3 model to free memory...")
+
+            # Delete model and tokenizer
+            del self.model
+            del self.tokenizer
+
+            # Clear PyTorch cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            elif self.device == "mps" and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+
+            # Force garbage collection
+            gc.collect()
+
+            # Reset state
+            self.model = None
+            self.tokenizer = None
+            self.initialized = False
+            self.last_used = None
+
+            logger.info("✅ Model unloaded - freed ~3.2GB memory")
+
+        except Exception as e:
+            logger.error(f"❌ Model unload failed: {e}")
+
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get comprehensive performance statistics"""
         resource_stats = self.resource_monitor.get_stats()

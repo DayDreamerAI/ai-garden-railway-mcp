@@ -127,6 +127,10 @@ embedding_cache = {}
 MAX_CACHE_SIZE = 1000
 v6_bridge = None  # V6 MCP Bridge (initialized after Neo4j connection)
 
+# Railway Memory Protection (Oct 18, 2025)
+MAX_SSE_CONNECTIONS = 5  # Limit concurrent connections to prevent memory accumulation
+MEMORY_CIRCUIT_BREAKER_THRESHOLD_GB = 4.5  # Reject requests when memory exceeds this
+
 # Protected entities for personality preservation
 PROTECTED_ENTITIES = [
     "Julian Crespi",
@@ -200,6 +204,43 @@ try:
 except ImportError:
     JINA_AVAILABLE = False
     logger.warning("⚠️ JinaV3 embedder not available - using text fallback")
+
+# =================== MEMORY CIRCUIT BREAKER ===================
+
+def check_memory_circuit_breaker() -> tuple[bool, Optional[str]]:
+    """
+    Memory circuit breaker to prevent Railway OOM crashes
+
+    Created: Oct 18, 2025
+    Purpose: Reject requests when memory exceeds 4.5GB threshold
+
+    Returns:
+        (is_safe, error_message)
+    """
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_gb = process.memory_info().rss / (1024**3)
+
+        if memory_gb > MEMORY_CIRCUIT_BREAKER_THRESHOLD_GB:
+            # Emergency cleanup
+            import gc
+            gc.collect()
+
+            # Try to unload JinaV3 model if available
+            global jina_embedder
+            if jina_embedder and hasattr(jina_embedder, 'unload_model'):
+                jina_embedder.unload_model()
+
+            error_msg = f"⚠️ Memory circuit breaker triggered: {memory_gb:.2f}GB > {MEMORY_CIRCUIT_BREAKER_THRESHOLD_GB}GB"
+            logger.warning(error_msg)
+            return False, error_msg
+
+        return True, None
+
+    except Exception as e:
+        logger.error(f"❌ Memory circuit breaker check failed: {e}")
+        return True, None  # Fail open - allow request on check failure
 
 # =================== NEO4J CONNECTION ===================
 
@@ -980,9 +1021,34 @@ async def send_sse_message(session_id: str, message: dict):
         logger.error(f"❌ Failed to send SSE message: {e}")
 
 async def handle_sse(request):
-    """SSE endpoint - establish connection and send endpoint info"""
+    """
+    SSE endpoint - establish connection and send endpoint info
+
+    Railway Optimization (Oct 18, 2025):
+    - Connection limit: Max 5 concurrent connections
+    - Memory circuit breaker: Reject if memory > 4.5GB
+    """
+    # Railway Memory Protection: Check connection limit
+    if len(sse_sessions) >= MAX_SSE_CONNECTIONS:
+        logger.warning(f"⚠️ SSE connection limit reached: {len(sse_sessions)}/{MAX_SSE_CONNECTIONS}")
+        return web.Response(
+            text="Service at capacity - too many active connections. Please try again later.",
+            status=503,
+            headers={'Retry-After': '60'}
+        )
+
+    # Railway Memory Protection: Check circuit breaker
+    is_safe, error_msg = check_memory_circuit_breaker()
+    if not is_safe:
+        logger.warning(f"⚠️ SSE connection rejected: {error_msg}")
+        return web.Response(
+            text=f"Service temporarily unavailable - {error_msg}",
+            status=503,
+            headers={'Retry-After': '30'}
+        )
+
     session_id = str(uuid4())
-    logger.info(f"🔗 SSE connection established: {session_id[:8]}")
+    logger.info(f"🔗 SSE connection established: {session_id[:8]} ({len(sse_sessions) + 1}/{MAX_SSE_CONNECTIONS})")
 
     # Create SSE response
     response = web.StreamResponse()
@@ -1018,7 +1084,23 @@ async def handle_sse(request):
     return response
 
 async def handle_post_message(request):
-    """POST endpoint - receive JSON-RPC messages"""
+    """
+    POST endpoint - receive JSON-RPC messages
+
+    Railway Optimization (Oct 18, 2025):
+    - Memory circuit breaker: Reject if memory > 4.5GB
+    """
+    # Railway Memory Protection: Check circuit breaker
+    is_safe, error_msg = check_memory_circuit_breaker()
+    if not is_safe:
+        return web.json_response({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": f"Service temporarily unavailable - {error_msg}"
+            }
+        }, status=503, headers={'Retry-After': '30'})
+
     session_id = request.query.get('session_id')
     test_mode = request.query.get('test_mode', '').lower() == 'true'
 
