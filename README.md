@@ -70,10 +70,11 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ## 🆕 Recent Updates
 
-**v6.3.3 (October 19, 2025)** - 🔥 CRITICAL FIX:
-- ✅ **Memory Monitoring Disabled**: Fixed misleading system memory logs causing mobile connection rejections
-- ✅ **Circuit Breaker Working**: Process memory correctly monitored (4.5GB threshold)
-- ✅ **Mobile Connections Restored**: 503 errors eliminated
+**v6.3.3 (October 19, 2025)** - 🔥 CRITICAL FIX - True Lazy Loading:
+- ✅ **JinaV3 Model Lazy Loading**: Fixed model loading at startup (was consuming 3.2GB immediately)
+- ✅ **Startup Memory**: Reduced from 6.28GB to ~3.0GB (below 4.5GB circuit breaker threshold)
+- ✅ **Mobile Connections Restored**: Model only loads when actually needed (may never load if read-only)
+- ✅ **Memory Monitoring Disabled**: Eliminated misleading system memory logs
 
 **v6.3.2 (October 18, 2025)** - V6 Compliance & Resource Optimization:
 - ✅ **Semantic Theme Classification**: Fixed 97.5% "general" theme bug with lightweight classifier

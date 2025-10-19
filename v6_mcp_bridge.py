@@ -127,15 +127,16 @@ class V6MCPBridge:
         # Embedding generation (for synchronous embedding in V6 observations)
         self.embedder = None
 
-        # Initialize JinaV3 embedder for synchronous embedding generation
+        # Configure JinaV3 embedder for lazy loading (Railway v6.3.3 memory optimization)
+        # Model will initialize on first actual use, not at startup
         if jina_embedder_available:
             try:
                 self.embedder = JinaV3OptimizedEmbedder()
-                self.embedder.initialize()
-                logger.info("✅ JinaV3 embedder initialized for synchronous observation embedding generation")
+                # Don't initialize here - let encode_single() handle lazy initialization on first use
+                logger.info("✅ JinaV3 embedder configured for lazy loading (model loads on first use)")
             except Exception as e:
-                logger.warning(f"⚠️ JinaV3 embedder initialization failed: {e}")
-                logger.warning("   Observations will be created without embeddings (requires manual batch generation)")
+                logger.warning(f"⚠️ JinaV3 embedder configuration failed: {e}")
+                logger.warning("   Observations will be created without embeddings")
                 self.embedder = None
 
         # Initialize V6 components if available
@@ -314,15 +315,15 @@ class V6MCPBridge:
                     embedding_enabled = embedding_flag.enabled if embedding_flag else False
 
                     if embedding_enabled:
-                        # Lazy initialization: try to initialize embedder if not already done
+                        # Lazy initialization: create embedder if not already done
                         if not self.embedder and jina_embedder_available:
                             try:
                                 logger.info("🔄 Lazy-initializing JinaV3 embedder...")
                                 self.embedder = JinaV3OptimizedEmbedder()
-                                self.embedder.initialize()
-                                logger.info("✅ JinaV3 embedder lazy-initialized successfully")
+                                # Don't initialize here - encode_single() will initialize on first use
+                                logger.info("✅ JinaV3 embedder configured (model will load on first encoding)")
                             except Exception as e:
-                                logger.error(f"❌ JinaV3 lazy initialization failed: {e}")
+                                logger.error(f"❌ JinaV3 embedder configuration failed: {e}")
                                 self.embedder = None
 
                         # Generate embedding if embedder is available
@@ -575,10 +576,10 @@ class V6MCPBridge:
                             try:
                                 logger.info("🔄 Lazy-initializing JinaV3 embedder for entity...")
                                 self.embedder = JinaV3OptimizedEmbedder()
-                                self.embedder.initialize()
-                                logger.info("✅ JinaV3 embedder lazy-initialized successfully")
+                                # Don't initialize here - encode_single() will initialize on first use
+                                logger.info("✅ JinaV3 embedder configured (model will load on first encoding)")
                             except Exception as e:
-                                logger.error(f"❌ JinaV3 lazy initialization failed: {e}")
+                                logger.error(f"❌ JinaV3 embedder configuration failed: {e}")
                                 self.embedder = None
 
                         # Generate embedding from entity text (name + type + observations)
@@ -636,10 +637,10 @@ class V6MCPBridge:
                                 try:
                                     logger.info("🔄 Lazy-initializing JinaV3 embedder...")
                                     self.embedder = JinaV3OptimizedEmbedder()
-                                    self.embedder.initialize()
-                                    logger.info("✅ JinaV3 embedder lazy-initialized successfully")
+                                    # Don't initialize here - encode_single() will initialize on first use
+                                    logger.info("✅ JinaV3 embedder configured (model will load on first encoding)")
                                 except Exception as e:
-                                    logger.error(f"❌ JinaV3 lazy initialization failed: {e}")
+                                    logger.error(f"❌ JinaV3 embedder configuration failed: {e}")
                                     self.embedder = None
 
                             if self.embedder:

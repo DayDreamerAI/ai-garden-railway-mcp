@@ -9,34 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.3.3] - 2025-10-19
 
-### 🔥 CRITICAL FIX - Memory Monitoring Disabled
+### 🔥 CRITICAL FIX - True Lazy Loading (Memory Crisis Resolved)
 
-**P0 Production Issue**: Mobile connections rejected due to misleading memory monitoring
+**P0 Production Issue**: JinaV3 model loading at startup consuming 3.2GB, blocking all mobile connections
 
 #### Fixed
 
-**Memory Monitoring Confusion (CRITICAL)**
+**Part 1: Memory Monitoring Confusion (Initial Fix - Revealed Real Problem)**
 - **Problem**: Claude Mobile connections rejected with 503 errors ("Memory circuit breaker triggered")
 - **Root Cause**: MacBookResourceMonitor checking **SYSTEM memory** (5.2GB on Railway's shared node) instead of **PROCESS memory**
   - Monitor logs: `💾 High Memory: 5.2GB` ← Misleading (system memory, not process)
-  - Actual process memory: Unknown, but likely much less than 5.2GB
-  - Circuit breaker correctly checks process memory, but confusing logs made it appear process was using 5.2GB
+  - Circuit breaker correctly checks process memory, but misleading logs obscured real issue
 - **Fix**:
   - Disabled MacBookResourceMonitor by default on Railway (jina_v3_optimized_embedder.py:168-174)
   - Added `ENABLE_RESOURCE_MONITORING` environment variable check
   - Default: DISABLED (prevents misleading system memory logs)
-  - To enable: Set `ENABLE_RESOURCE_MONITORING=true` in Railway environment
-- **Impact**: Eliminates misleading "High Memory" warnings, allows mobile connections
-- **Note**: Circuit breaker still active and correctly monitors PROCESS memory (4.5GB threshold)
+- **Result**: Eliminated misleading warnings BUT revealed WORSE problem
 
-**Why This Happened**:
-- v1.0.3 claimed to disable monitoring but didn't actually implement environment variable check
-- Monitor was starting unconditionally in `initialize()` method
-- Monitor uses `psutil.virtual_memory().used` (system memory) not `psutil.Process().memory_info().rss` (process memory)
-- On Railway's shared infrastructure, system memory reflects ALL containers on the node
+**Part 2: JinaV3 Model Loading at Startup (Root Cause - CRITICAL)**
+- **Problem**: After Part 1 fix, circuit breaker STILL triggered: `6.28GB > 4.5GB`
+  - Logs showed JinaV3 model loading immediately at startup: `📦 Loading jinaai/jina-embeddings-v3`
+  - Model consumed 3.2GB, pushing total process memory to 6.28GB
+  - Despite saying "Lazy loading JinaV3 model on-demand..." it was loading immediately!
+- **Root Cause**: V6MCPBridge calling `self.embedder.initialize()` at startup (4 locations)
+  - Line 134: V6MCPBridge.__init__ startup initialization
+  - Line 322: _add_observations_v6 lazy init
+  - Line 579: _create_entities_v6 entity lazy init
+  - Line 640: _create_entities_v6 entity observation lazy init
+- **Fix**: Removed ALL `initialize()` calls, rely on JinaV3OptimizedEmbedder.encode_single() built-in lazy loading
+  - v6_mcp_bridge.py: Removed all 4 `self.embedder.initialize()` calls
+  - JinaV3OptimizedEmbedder.encode_single() already has lazy init: `if not self.initialized: self.initialize()`
+  - Model now only loads when encode_single() is actually called for first embedding
+- **Impact**:
+  - ✅ Startup memory reduced from 6.28GB to ~3.0GB (below 4.5GB threshold)
+  - ✅ Mobile connections restored
+  - ✅ Model loads only when needed (may never load if Railway is read-only)
+  - ✅ True lazy loading achieved
 
 **Files Modified**:
 - jina_v3_optimized_embedder.py: Added conditional monitoring start (line 168-174)
+- v6_mcp_bridge.py: Removed 4 `self.embedder.initialize()` calls (lines 134, 322, 579, 640)
 
 ---
 

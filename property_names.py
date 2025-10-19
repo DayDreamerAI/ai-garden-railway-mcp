@@ -1,6 +1,12 @@
 """
 Memory Sovereignty Architecture - Canonical Property Names Schema
 
+📍 SYNCED COPY FROM CANONICAL SOURCE:
+   /llm/memory/schemas/property_names.py
+
+This is a Railway deployment copy. To update:
+   cp /llm/memory/schemas/property_names.py ./property_names.py
+
 This module defines the single source of truth for all Neo4j node properties,
 relationship types, and labels used across:
 - Local MCP Server (stdio transport for Claude Code)
@@ -247,7 +253,7 @@ class DayProperties:
 @dataclass
 class MonthProperties:
     """Canonical property names for Month nodes"""
-    YEAR_MONTH = "year_month"  # Format: "YYYY-MM"
+    DATE = "date"  # Format: "YYYY-MM" (ISO string, matching Day.date pattern)
 
 
 @dataclass
