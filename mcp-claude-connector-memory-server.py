@@ -83,7 +83,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "6.3.4"  # MCP Protocol Compliance + GraphRAG Fixes
+SERVER_VERSION = "6.3.5"  # SSE Connection Management + V5 Migration Tools
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -128,8 +128,10 @@ MAX_CACHE_SIZE = 1000
 v6_bridge = None  # V6 MCP Bridge (initialized after Neo4j connection)
 
 # Railway Memory Protection (Oct 18, 2025)
-MAX_SSE_CONNECTIONS = 5  # Limit concurrent connections to prevent memory accumulation
+# Increased from 5 to 10 for multi-platform usage (Desktop + Web + Mobile)
+MAX_SSE_CONNECTIONS = 10  # Limit concurrent connections to prevent memory accumulation
 MEMORY_CIRCUIT_BREAKER_THRESHOLD_GB = 4.5  # Reject requests when memory exceeds this
+SSE_CONNECTION_TIMEOUT_SECONDS = 300  # 5 minutes - auto-cleanup stale connections
 
 # Protected entities for personality preservation
 PROTECTED_ENTITIES = [
@@ -1054,13 +1056,19 @@ async def send_sse_message(session_id: str, message: dict):
         logger.warning(f"⚠️  Session {session_id[:8]} not found")
         return
 
-    response = sse_sessions[session_id]
+    session_data = sse_sessions[session_id]
+    response = session_data['response'] if isinstance(session_data, dict) else session_data
+
     try:
         data = json.dumps(message)
         await response.write(f"data: {data}\n\n".encode())
         logger.info(f"📤 [{session_id[:8]}] Sent response")
     except Exception as e:
         logger.error(f"❌ Failed to send SSE message: {e}")
+        # Remove stale session on write failure
+        if session_id in sse_sessions:
+            del sse_sessions[session_id]
+            logger.info(f"🧹 Removed stale session: {session_id[:8]}")
 
 async def handle_sse(request):
     """
@@ -1099,8 +1107,11 @@ async def handle_sse(request):
     response.headers['Access-Control-Allow-Origin'] = '*'
     await response.prepare(request)
 
-    # Store session
-    sse_sessions[session_id] = response
+    # Store session with timestamp for auto-cleanup
+    sse_sessions[session_id] = {
+        'response': response,
+        'created_at': time.time()
+    }
 
     try:
         # Send endpoint event
@@ -1108,9 +1119,17 @@ async def handle_sse(request):
         await response.write(f"event: endpoint\ndata: {endpoint_uri}\n\n".encode())
         logger.info(f"📍 [{session_id[:8]}] Sent endpoint: {endpoint_uri}")
 
-        # Keep connection alive
+        # Keep connection alive with timeout check
+        connection_start = time.time()
         while True:
             await asyncio.sleep(30)
+
+            # Auto-cleanup stale connections (older than timeout)
+            connection_age = time.time() - connection_start
+            if connection_age > SSE_CONNECTION_TIMEOUT_SECONDS:
+                logger.info(f"⏰ Session {session_id[:8]} timeout after {connection_age:.0f}s")
+                break
+
             try:
                 await response.write(b": keepalive\n\n")
             except:
@@ -1121,7 +1140,7 @@ async def handle_sse(request):
     finally:
         if session_id in sse_sessions:
             del sse_sessions[session_id]
-        logger.info(f"🔌 SSE connection closed: {session_id[:8]}")
+        logger.info(f"🔌 SSE connection closed: {session_id[:8]} (active: {len(sse_sessions)}/{MAX_SSE_CONNECTIONS})")
 
     return response
 
@@ -1211,6 +1230,27 @@ async def root_info(request):
 
 # =================== SERVER INITIALIZATION ===================
 
+async def cleanup_stale_sessions():
+    """Background task to cleanup stale SSE sessions"""
+    while True:
+        await asyncio.sleep(60)  # Check every minute
+
+        stale_sessions = []
+        current_time = time.time()
+
+        for session_id, session_data in list(sse_sessions.items()):
+            if isinstance(session_data, dict):
+                age = current_time - session_data.get('created_at', current_time)
+                if age > SSE_CONNECTION_TIMEOUT_SECONDS:
+                    stale_sessions.append(session_id)
+
+        for session_id in stale_sessions:
+            del sse_sessions[session_id]
+            logger.info(f"🧹 Cleaned stale session: {session_id[:8]}")
+
+        if stale_sessions:
+            logger.info(f"🧹 Cleaned {len(stale_sessions)} stale sessions (active: {len(sse_sessions)}/{MAX_SSE_CONNECTIONS})")
+
 async def initialize_server():
     """Initialize server components"""
     global jina_embedder
@@ -1219,6 +1259,9 @@ async def initialize_server():
 
     # Initialize Neo4j
     await initialize_neo4j()
+
+    # Start background cleanup task
+    asyncio.create_task(cleanup_stale_sessions())
 
     # Initialize JinaV3 if available (lazy loading - no warmup to avoid 3.2GB startup memory)
     if JINA_AVAILABLE:

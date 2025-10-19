@@ -2,7 +2,7 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.3.4 (October 19, 2025)
+**Version**: 6.3.5 (October 19, 2025)
 
 ## 🚀 Live Deployment
 
@@ -70,6 +70,12 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ## 🆕 Recent Updates
 
+**v6.3.5 (October 19, 2025)** - 🔧 SSE Connection Management + V5 Migration:
+- ✅ **SSE Connections**: Increased limit from 5→10 for multi-platform usage
+- ✅ **Auto-Cleanup**: 5-minute timeout + background stale session cleanup
+- ✅ **V5 Migration Tool**: Script to migrate 3,427 legacy Chunk nodes to V6 schema
+- ✅ **Better Monitoring**: Session tracking with timestamps and active connection logging
+
 **v6.3.4 (October 19, 2025)** - 🔥 CRITICAL FIXES - MCP Protocol + GraphRAG Global Search:
 - ✅ **MCP Protocol Compliance**: Fixed "Unknown method: prompts/list" error (added 4 missing handlers)
 - ✅ **GraphRAG Global Search**: Fixed embedder isolation causing memory spikes and failures
@@ -92,6 +98,6 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ---
 
-**Deployment Version**: Tier 1 (8 tools) | v6.3.4
+**Deployment Version**: Tier 1 (8 tools) | v6.3.5
 **Last Updated**: October 19, 2025
 **Source**: Private daydreamer-mcp repository

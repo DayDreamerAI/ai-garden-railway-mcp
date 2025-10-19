@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.3.5] - 2025-10-19
+
+### 🔧 Operational Improvements - SSE Connection Management
+
+**Production Optimization**: Address connection limits and add V5 chunk migration tooling
+
+#### Fixed
+
+**SSE Connection Limit Improvements**
+- **Problem**: 5 concurrent connection limit too restrictive for multi-platform usage (Desktop + Web + Mobile)
+- **Fix**:
+  - Increased MAX_SSE_CONNECTIONS from 5 to 10
+  - Added SSE_CONNECTION_TIMEOUT_SECONDS (5 minutes auto-cleanup)
+  - Implemented background cleanup task for stale sessions
+  - Session tracking with timestamps for better monitoring
+  - Auto-remove failed sessions on write errors
+- **Impact**:
+  - ✅ Supports more concurrent users (Desktop + Web + Mobile simultaneously)
+  - ✅ Automatic cleanup prevents connection leak
+  - ✅ Better logging: "active: X/10" in connection close messages
+
+#### Added
+
+**V5 Chunk Migration Script**
+- **Purpose**: Migrate 3,427 legacy Chunk nodes to V6 Observation schema (from audit findings)
+- **Script**: `migrate_v5_chunks_to_v6.py`
+- **Features**:
+  - Dry-run mode for safe preview
+  - Batch migration with progress tracking
+  - MacroChunk analysis tool
+  - Comprehensive validation and rollback safety
+- **Usage**:
+  ```bash
+  python migrate_v5_chunks_to_v6.py --dry-run  # Preview
+  python migrate_v5_chunks_to_v6.py            # Execute
+  python migrate_v5_chunks_to_v6.py --analyze-macro  # Analyze MacroChunks
+  ```
+- **Status**: Ready for execution after Railway v6.3.4 deployment validation
+
+**Files Modified**:
+- mcp-claude-connector-memory-server.py: SSE connection improvements (lines 132-134, 1105-1108, 1123-1143, 1233-1264)
+- migrate_v5_chunks_to_v6.py: NEW - V5 chunk migration tooling
+
+---
+
 ## [6.3.4] - 2025-10-19
 
 ### 🔥 Critical Fixes - MCP Protocol Compliance + GraphRAG Global Search
