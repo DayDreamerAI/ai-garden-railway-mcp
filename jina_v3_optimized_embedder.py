@@ -94,11 +94,11 @@ class JinaV3OptimizedEmbedder:
     - Aggressive caching and batching
     """
     
-    def __init__(self, 
+    def __init__(self,
                  model_name: str = "jinaai/jina-embeddings-v3",
                  target_dimensions: int = 256,
                  use_quantization: bool = True,
-                 device: str = "mps"):
+                 device: str = "cpu"):
         
         self.model_name = model_name
         self.target_dimensions = target_dimensions

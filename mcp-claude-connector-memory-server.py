@@ -152,6 +152,15 @@ except ImportError as e:
     V6_BRIDGE_AVAILABLE = False
     logger.error(f"❌ CRITICAL: V6 MCP Bridge not available: {e}")
 
+# Import Semantic Theme Classifier (fixes 97.5% "general" theme bug - v6.3.2)
+try:
+    from semantic_classifier import SemanticThemeClassifier
+    SEMANTIC_CLASSIFIER_AVAILABLE = True
+    logger.info("✅ Semantic theme classifier available")
+except ImportError as e:
+    SEMANTIC_CLASSIFIER_AVAILABLE = False
+    logger.warning(f"⚠️ Semantic classifier not available: {e}")
+
 # Import Schema Enforcement (GraphRAG Phase 1 Foundation)
 try:
     from schema_enforcement import (
@@ -272,11 +281,21 @@ async def initialize_neo4j():
         neo4j_connected = True
         logger.info("✅ Neo4j connected successfully")
 
+        # Initialize Semantic Theme Classifier (fixes 97.5% "general" theme bug - v6.3.2)
+        semantic_classifier = None
+        if SEMANTIC_CLASSIFIER_AVAILABLE:
+            try:
+                semantic_classifier = SemanticThemeClassifier()
+                logger.info("✅ Semantic theme classifier initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ Semantic classifier initialization failed: {e}")
+                semantic_classifier = None
+
         # Initialize V6 MCP Bridge (canonical V6 observation creation)
         if V6_BRIDGE_AVAILABLE:
             try:
-                v6_bridge = V6MCPBridge(driver)
-                logger.info("✅ V6 MCP Bridge initialized")
+                v6_bridge = V6MCPBridge(driver, semantic_classifier=semantic_classifier)
+                logger.info("✅ V6 MCP Bridge initialized with semantic classifier")
             except Exception as e:
                 logger.error(f"❌ V6 Bridge initialization failed: {e}")
                 v6_bridge = None

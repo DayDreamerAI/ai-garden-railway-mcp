@@ -102,8 +102,8 @@ class V6MCPBridge:
     Integration bridge between V6 architecture and MCP memory server
     Handles dual-write V5/V6 operations and feature flag routing
     """
-    
-    def __init__(self, neo4j_driver):
+
+    def __init__(self, neo4j_driver, semantic_classifier=None):
         self.driver = neo4j_driver
         self.v6_enabled = v6_modules_available
 
@@ -120,6 +120,9 @@ class V6MCPBridge:
         self.concept_extractor = None
         self.entity_index = None
         self.embedding_cache = None
+
+        # Semantic theme classifier (fixes 97.5% "general" theme bug - v6.3.2)
+        self.semantic_classifier = semantic_classifier
 
         # Embedding generation (for synchronous embedding in V6 observations)
         self.embedder = None
@@ -292,8 +295,15 @@ class V6MCPBridge:
                     # V6 COMPLIANCE: Generate ISO 8601 timestamp for created_at
                     created_at_iso = datetime.now().isoformat(timespec='milliseconds') + 'Z'
 
-                    # Use general theme for now (avoid potential recursion in classifier)
-                    theme = 'general'
+                    # Classify semantic theme (fixes 97.5% "general" bug - v6.3.2)
+                    if self.semantic_classifier:
+                        try:
+                            theme = self.semantic_classifier.classify(obs_content)
+                        except Exception as e:
+                            logger.warning(f"⚠️ Theme classification failed: {e}, using 'general'")
+                            theme = 'general'
+                    else:
+                        theme = 'general'
 
                     # Generate embedding synchronously (with lazy initialization)
                     embedding_vector = None
@@ -601,8 +611,18 @@ class V6MCPBridge:
 
                     # Create observation nodes for each observation
                     for obs_content in entity_data.get('observations', []):
-                        # Use general theme for now (avoid potential recursion in classifier)
-                        theme = 'general'
+                        # V6 COMPLIANCE: Generate ISO 8601 timestamp for created_at
+                        created_at_iso = datetime.now().isoformat(timespec='milliseconds') + 'Z'
+
+                        # Classify semantic theme (fixes 97.5% "general" bug - v6.3.2)
+                        if self.semantic_classifier:
+                            try:
+                                theme = self.semantic_classifier.classify(obs_content)
+                            except Exception as e:
+                                logger.warning(f"⚠️ Theme classification failed: {e}, using 'general'")
+                                theme = 'general'
+                        else:
+                            theme = 'general'
 
                         # Generate embedding (with lazy initialization and feature flag check)
                         embedding_vector = None
@@ -634,7 +654,7 @@ class V6MCPBridge:
                             CREATE (o:Observation:Perennial:Entity {{
                                 id: randomUUID(),
                                 {OBS.CONTENT}: $content,
-                                timestamp: datetime(),
+                                {OBS.CREATED_AT}: $created_at,
                                 source: 'mcp_tool',
                                 created_by: 'perennial_v6_mcp_bridge',
                                 {OBS.CONVERSATION_ID}: $session_id,
@@ -661,6 +681,7 @@ class V6MCPBridge:
                             RETURN o.id as observation_id
                         """,
                         content=obs_content,
+                        created_at=created_at_iso,
                         entity_name=entity_data['name'],
                         session_id=session_data['session_id'],
                         theme=theme,
