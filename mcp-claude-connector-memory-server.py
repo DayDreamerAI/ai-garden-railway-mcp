@@ -83,7 +83,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "2.0.0"  # V6 Bridge Migration
+SERVER_VERSION = "6.3.4"  # MCP Protocol Compliance + GraphRAG Fixes
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -893,7 +893,8 @@ async def handle_graphrag_global_search(arguments: dict) -> dict:
             neo4j_driver=driver,
             query=arguments["query"],
             limit=arguments.get("limit", 5),
-            min_similarity=arguments.get("min_similarity", 0.6)
+            min_similarity=arguments.get("min_similarity", 0.6),
+            embedder=jina_embedder  # Fix: Pass singleton embedder to prevent duplicate model loading
         )
         return result
     except Exception as e:
@@ -1001,6 +1002,28 @@ async def handle_mcp_request(data: dict, session_id: str):
                         "text": result_text
                     }
                 ]
+            }
+
+        elif method == "prompts/list":
+            # MCP protocol compliance: Return empty prompts list
+            result = {"prompts": []}
+
+        elif method == "prompts/get":
+            # MCP protocol compliance: Return empty prompt
+            result = {
+                "messages": [],
+                "description": "No prompts available"
+            }
+
+        elif method == "resources/list":
+            # MCP protocol compliance: Return empty resources list
+            result = {"resources": []}
+
+        elif method == "resources/read":
+            # MCP protocol compliance: Return empty resource
+            result = {
+                "contents": [],
+                "mimeType": "text/plain"
             }
 
         else:
@@ -1197,7 +1220,7 @@ async def initialize_server():
     # Initialize Neo4j
     await initialize_neo4j()
 
-    # Initialize JinaV3 if available
+    # Initialize JinaV3 if available (lazy loading - no warmup to avoid 3.2GB startup memory)
     if JINA_AVAILABLE:
         try:
             # Use platform-appropriate device (CPU for Railway, MPS for MacBook)
@@ -1206,10 +1229,11 @@ async def initialize_server():
                 use_quantization=True,
                 device=EMBEDDER_DEVICE
             )
-            _ = jina_embedder.encode_single("warmup", normalize=True)
-            logger.info(f"✅ JinaV3 embedder initialized (device={EMBEDDER_DEVICE})")
+            # REMOVED: warmup call that defeats lazy loading (v6.3.4 fix)
+            # Model will load on first actual encode_single() call (true lazy loading)
+            logger.info(f"✅ JinaV3 embedder configured for lazy loading (device={EMBEDDER_DEVICE})")
         except Exception as e:
-            logger.warning(f"⚠️ JinaV3 initialization failed: {e}")
+            logger.warning(f"⚠️ JinaV3 configuration failed: {e}")
             jina_embedder = None
 
     logger.info(f"✅ Server initialized with {len(TOOL_REGISTRY)} tools")

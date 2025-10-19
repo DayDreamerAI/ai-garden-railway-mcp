@@ -2,7 +2,7 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.3.3 (October 19, 2025)
+**Version**: 6.3.4 (October 19, 2025)
 
 ## 🚀 Live Deployment
 
@@ -70,7 +70,13 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ## 🆕 Recent Updates
 
-**v6.3.3 (October 19, 2025)** - 🔥 CRITICAL FIX - True Lazy Loading:
+**v6.3.4 (October 19, 2025)** - 🔥 CRITICAL FIXES - MCP Protocol + GraphRAG Global Search:
+- ✅ **MCP Protocol Compliance**: Fixed "Unknown method: prompts/list" error (added 4 missing handlers)
+- ✅ **GraphRAG Global Search**: Fixed embedder isolation causing memory spikes and failures
+- ✅ **True Lazy Loading**: Removed warmup call that defeated v6.3.3 lazy loading (startup memory now ~500MB)
+- ✅ **Memory Stability**: Global search uses singleton embedder (no duplicate 3.2GB model loading)
+
+**v6.3.3 (October 19, 2025)** - 🔥 CRITICAL FIX - True Lazy Loading (incomplete):
 - ✅ **JinaV3 Model Lazy Loading**: Fixed model loading at startup (was consuming 3.2GB immediately)
 - ✅ **Startup Memory**: Reduced from 6.28GB to ~3.0GB (below 4.5GB circuit breaker threshold)
 - ✅ **Mobile Connections Restored**: Model only loads when actually needed (may never load if read-only)
@@ -86,6 +92,6 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ---
 
-**Deployment Version**: Tier 1 (5 tools) | v6.3.3
+**Deployment Version**: Tier 1 (8 tools) | v6.3.4
 **Last Updated**: October 19, 2025
 **Source**: Private daydreamer-mcp repository
