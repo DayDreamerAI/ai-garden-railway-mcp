@@ -52,11 +52,11 @@ def load_feature_flags() -> Dict[str, bool]:
         except Exception:
             pass
 
-    # Default flags (Phase 2 enabled, Phase 3 disabled)
+    # Default flags (Phase 2 + Phase 3 enabled - infrastructure is production-ready)
     return {
-        "graphrag_enabled": False,
-        "graphrag_global_search": False,
-        "graphrag_local_search": False,
+        "graphrag_enabled": True,  # Phase 3 complete
+        "graphrag_global_search": True,  # Phase 3 complete
+        "graphrag_local_search": True,  # Phase 3 complete
         "graphrag_community_summaries": True,  # Phase 2 complete
         "graphrag_community_embeddings": True,  # Phase 2 complete
         "graphrag_vector_index": True  # Phase 2 complete
