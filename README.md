@@ -63,10 +63,20 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 
 ## 📚 Documentation
 
-- **CHANGELOG**: See [CHANGELOG.md](CHANGELOG.md) for complete version history
-- **Setup Guide**: See main daydreamer-mcp repository
+### Quick Links
+
+- **[CHANGELOG.md](CHANGELOG.md)** - Complete version history (v6.3.6: 95% V6 compliance)
+- **[docs/audits/](docs/audits/)** - V6 compliance audits and responses
+  - Latest: 19/20 (95%) - October 19, 2025
+  - All fixes documented and validated
+- **[docs/](docs/)** - Technical documentation and deployment guides
+
+### System Status
+
+- **V6 Compliance**: 19/20 (95%) ✅ PRODUCTION READY
 - **Architecture**: Custom Connector + SSE transport
-- **Memory System**: V6 observation nodes, temporal binding
+- **Memory System**: V6 observation nodes with temporal binding
+- **GraphRAG**: Phase 3 complete (241 communities, global/local search operational)
 
 ## 🆕 Recent Updates
 
