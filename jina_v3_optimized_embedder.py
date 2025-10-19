@@ -165,9 +165,14 @@ class JinaV3OptimizedEmbedder:
         start_time = time.time()
         
         try:
-            # Start resource monitoring
-            self.resource_monitor.start_monitoring()
-            
+            # Start resource monitoring (disabled by default on Railway - uses system memory not process memory)
+            import os
+            if os.getenv('ENABLE_RESOURCE_MONITORING', 'false').lower() == 'true':
+                self.resource_monitor.start_monitoring()
+                logger.info("📊 Resource monitoring enabled via ENABLE_RESOURCE_MONITORING")
+            else:
+                logger.info("📊 Resource monitoring disabled (Railway default - prevents misleading system memory logs)")
+
             # Check MPS availability
             if self.device == "mps":
                 try:

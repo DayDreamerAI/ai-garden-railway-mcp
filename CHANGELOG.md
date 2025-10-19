@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.3.3] - 2025-10-19
+
+### 🔥 CRITICAL FIX - Memory Monitoring Disabled
+
+**P0 Production Issue**: Mobile connections rejected due to misleading memory monitoring
+
+#### Fixed
+
+**Memory Monitoring Confusion (CRITICAL)**
+- **Problem**: Claude Mobile connections rejected with 503 errors ("Memory circuit breaker triggered")
+- **Root Cause**: MacBookResourceMonitor checking **SYSTEM memory** (5.2GB on Railway's shared node) instead of **PROCESS memory**
+  - Monitor logs: `💾 High Memory: 5.2GB` ← Misleading (system memory, not process)
+  - Actual process memory: Unknown, but likely much less than 5.2GB
+  - Circuit breaker correctly checks process memory, but confusing logs made it appear process was using 5.2GB
+- **Fix**:
+  - Disabled MacBookResourceMonitor by default on Railway (jina_v3_optimized_embedder.py:168-174)
+  - Added `ENABLE_RESOURCE_MONITORING` environment variable check
+  - Default: DISABLED (prevents misleading system memory logs)
+  - To enable: Set `ENABLE_RESOURCE_MONITORING=true` in Railway environment
+- **Impact**: Eliminates misleading "High Memory" warnings, allows mobile connections
+- **Note**: Circuit breaker still active and correctly monitors PROCESS memory (4.5GB threshold)
+
+**Why This Happened**:
+- v1.0.3 claimed to disable monitoring but didn't actually implement environment variable check
+- Monitor was starting unconditionally in `initialize()` method
+- Monitor uses `psutil.virtual_memory().used` (system memory) not `psutil.Process().memory_info().rss` (process memory)
+- On Railway's shared infrastructure, system memory reflects ALL containers on the node
+
+**Files Modified**:
+- jina_v3_optimized_embedder.py: Added conditional monitoring start (line 168-174)
+
+---
+
 ## [6.3.2] - 2025-10-18
 
 ### 🔥 Critical Fixes - V6 Compliance & Resource Optimization
