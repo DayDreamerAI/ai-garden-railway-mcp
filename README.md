@@ -2,7 +2,7 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.3.2 (October 18, 2025)
+**Version**: 6.3.3 (October 19, 2025)
 
 ## 🚀 Live Deployment
 
@@ -68,18 +68,23 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 - **Architecture**: Custom Connector + SSE transport
 - **Memory System**: V6 observation nodes, temporal binding
 
-## 🆕 Recent Updates (v6.3.2)
+## 🆕 Recent Updates
 
-**V6 Compliance & Resource Optimization** (October 18, 2025):
+**v6.3.3 (October 19, 2025)** - 🔥 CRITICAL FIX:
+- ✅ **Memory Monitoring Disabled**: Fixed misleading system memory logs causing mobile connection rejections
+- ✅ **Circuit Breaker Working**: Process memory correctly monitored (4.5GB threshold)
+- ✅ **Mobile Connections Restored**: 503 errors eliminated
+
+**v6.3.2 (October 18, 2025)** - V6 Compliance & Resource Optimization:
 - ✅ **Semantic Theme Classification**: Fixed 97.5% "general" theme bug with lightweight classifier
 - ✅ **V5 Timestamp Removal**: 100% V6 compliance with ISO 8601 `created_at` properties
-- ✅ **Resource Optimization**: CPU-only mode for Railway environment (512MB RAM limit)
+- ✅ **Resource Optimization**: CPU-only mode for Railway environment
 - ✅ **Memory Efficiency**: Lazy initialization, pattern-based classification
 
-**Impact**: Proper theme distribution, V6 schema compliance, runs efficiently within Railway's resource constraints
+**Impact**: Production stability restored, proper theme distribution, V6 schema compliance
 
 ---
 
-**Deployment Version**: Tier 1 (5 tools) | v6.3.2
-**Last Updated**: October 18, 2025
+**Deployment Version**: Tier 1 (5 tools) | v6.3.3
+**Last Updated**: October 19, 2025
 **Source**: Private daydreamer-mcp repository
