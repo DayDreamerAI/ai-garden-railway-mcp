@@ -2,23 +2,44 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.3.6 (October 19, 2025)
+**Version**: 6.7.0 (October 20, 2025)
+**Stdio Parity**: 100% (17/17 tools)
 
 ## 🚀 Live Deployment
 
 - **URL**: https://ai-garden-railway-mcp-production.up.railway.app
 - **Protocol**: SSE Transport (Custom Connector compatible)
 - **Database**: Neo4j AuraDB InstanceDaydreamer_01
+- **Architecture**: Railway = stdio v6.7.0 + SSE transport (ONE CANONICAL LOGIC)
 
-## 🛠️ Current Deployment
+## 🛠️ Complete Tool Suite (17 Tools - 100% Stdio Parity)
 
-### Tier 1: Core Memory Tools (5 tools)
+### Entity & Observation Management (5 tools)
+1. **create_entities** - Create entities with V6 observations, JinaV3 embeddings, MVCM
+2. **add_observations** - Add observations with direct Cypher, semantic themes, MVCM entity mentions
+3. **search_nodes** - Semantic search via JinaV3 256D or exact name/alias lookup
+4. **create_relations** - Create entity relationships with canonical types
+5. **search_observations** - Multi-dimensional filtering (theme, entity, date, confidence)
 
-1. **search_nodes** - Semantic search via JinaV3 or exact name lookup
-2. **memory_stats** - Graph statistics with V6 status
-3. **create_entities** - Entity creation with embeddings
-4. **add_observations** - Observation management
-5. **raw_cypher_query** - Direct Cypher access
+### Conversation & Temporal Tools (4 tools)
+6. **search_conversations** - Search preserved conversation sessions by topic/date/activity
+7. **trace_entity_origin** - Find which conversations created/discussed an entity
+8. **get_temporal_context** - Get conversations within time window around specific dates
+9. **get_breakthrough_sessions** - Retrieve high-importance conversation sessions
+
+### GraphRAG Advanced Search (2 tools)
+10. **graphrag_global_search** - Community-level synthesis across 241 Leiden clusters
+11. **graphrag_local_search** - Entity neighborhood exploration with multi-hop traversal
+
+### System Management (3 tools)
+12. **memory_stats** - System health, embedding coverage, V6 compliance metrics
+13. **raw_cypher_query** - Direct Neo4j Cypher access for operational queries
+14. **generate_embeddings_batch** - JinaV3 256D batch embedding generation (Railway cloud-native)
+
+### Advanced Memory Tools (3 tools - Stubs)
+15. **conversational_memory_search** - Natural language memory search (fallback to enhanced_search)
+16. **virtual_context_search** - 70% token reduction search (fallback to regular search)
+17. **lightweight_embodiment** - <4K token startup protocol (recommend full PBC via Claude Code)
 
 ## 📊 Production Data
 
@@ -79,6 +100,17 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 - **GraphRAG**: Phase 3 complete (241 communities, global/local search operational)
 
 ## 🆕 Recent Updates
+
+**v6.7.0 (October 20, 2025)** - 🎯 COMPLETE STDIO PARITY - 47% → 100% Tool Coverage:
+- ✅ **V6 Bridge Removed**: Deprecated V6MCPBridge replaced with direct Cypher implementation (stdio v6.6.0)
+- ✅ **Direct Cypher**: Stdio-identical observation creation with MVCM entity mentions
+- ✅ **MVCM Integration**: Automatic entity mention detection via concept extraction (stdio v6.7.0)
+- ✅ **9 New Tools**: create_relations, search_observations, 4 conversation tools, 3 advanced stubs
+- ✅ **Tool Parity**: 8 tools → 17 tools (100% stdio v6.7.0 feature parity)
+- ✅ **ONE CANONICAL LOGIC**: Railway = stdio + SSE transport (zero logic variations)
+- ✅ **Schema Compliance**: Updated paths to `/llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md`
+- ✅ **SemanticThemeClassifier**: 9 themes + MVCM concept extraction integrated directly
+- ✅ **Localhost Protection**: Triple-layer security preventing local connections (stdio v5.1.0)
 
 **v6.3.6 (October 19, 2025)** - ✅ V6 AUDIT FIXES COMPLETE - 70% → 95% Compliance:
 - ✅ **V5 Chunk Migration**: 3,428 nodes migrated to V6 schema (100% compliance)
