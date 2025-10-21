@@ -58,6 +58,18 @@ NEO4J_PASSWORD=<your-auradb-password>
 JINA_API_KEY=<your-jina-api-key>
 ```
 
+### Optional Performance Variables
+
+```env
+EMBEDDING_TIMEOUT=35  # Default: 10 (seconds)
+```
+
+**EMBEDDING_TIMEOUT**: Maximum time to wait for embedding generation before fallback.
+- **Default**: 10 seconds (too short for Railway CPU lazy loading!)
+- **Recommended**: 35 seconds (allows ~24s model load + safety buffer)
+- **Impact**: Prevents timeout errors during first GraphRAG query in PBC Desktop
+- **Set via**: `railway variables --set "EMBEDDING_TIMEOUT=35"`
+
 ## ⚡ Performance Characteristics
 
 ### JinaV3 Lazy Loading (CPU Environment)
