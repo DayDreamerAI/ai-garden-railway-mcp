@@ -1,15 +1,12 @@
-# Core dependencies
-neo4j>=5.23.0
-aiohttp>=3.9.0
-python-dotenv
+# Core dependencies - pinned versions for Railway stability
+neo4j==5.26.0
+aiohttp==3.10.11
+python-dotenv==1.0.1
 
-# JinaV3 Embeddings Support
-transformers>=4.31.0
-torch>=2.0.0
-sentence-transformers>=2.2.0
-numpy>=1.24.0
-psutil>=5.9.0
-einops>=0.7.0
-
-# Optional: Use --no-deps if torch installation fails on Railway
-# Railway will automatically select CPU-only torch
+# JinaV3 Embeddings Support - CPU-optimized for Railway
+transformers==4.45.0
+torch==2.5.1
+sentence-transformers==3.2.1
+numpy==1.26.4
+psutil==6.1.0
+einops==0.8.0
