@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Major Architectural Update**: Railway connector v6.3.6 → v6.7.0 achieving complete stdio v6.7.0 parity
 
+#### Performance Notes
+
+**JinaV3 Lazy Loading on Railway CPU**:
+- **First embedding request**: ~24 seconds (model download + load + quantization)
+- **Subsequent requests**: Instant (model stays resident in memory)
+- **Memory profile**: 500MB startup → 3.7GB after first embedding
+- **Why**: Prevents 6.28GB startup spike that exceeded Railway's 4.5GB threshold
+- **Benefit**: Enables mobile/web connections, optimal for read-only sessions
+- **Implementation**: v6.3.3 (October 19, 2025) - True lazy loading achieved
+
 #### Added
 
 **9 New Tools (8 → 17 total tools)**:

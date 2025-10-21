@@ -58,6 +58,32 @@ NEO4J_PASSWORD=<your-auradb-password>
 JINA_API_KEY=<your-jina-api-key>
 ```
 
+## ⚡ Performance Characteristics
+
+### JinaV3 Lazy Loading (CPU Environment)
+
+**First Embedding Request** (~24 seconds):
+- Model downloads from HuggingFace (if not cached)
+- 3.2GB model loads into CPU memory
+- Int8 quantization applied
+- 256D Matryoshka truncation configured
+
+**Subsequent Requests** (instant):
+- Model stays resident in memory
+- No reload required until Railway container restarts
+- Fast inference on all embedding operations
+
+**Memory Profile**:
+- Startup: ~500MB (no model loaded)
+- After first embedding: ~3.7GB (model + base server)
+- Peak: ~4.2GB (during embedding generation)
+
+**Why Lazy Loading?**:
+- Prevents 6.28GB startup memory spike (exceeded Railway's 4.5GB threshold)
+- Enables mobile/web connections without memory circuit breaker
+- Optimal for read-only sessions (never loads model if no embeddings needed)
+- Implemented in v6.3.3 (October 19, 2025)
+
 ## 📦 Deployment
 
 Railway auto-deploys from `main` branch.
@@ -80,6 +106,9 @@ railway up
 ```bash
 # Test production endpoint
 curl https://ai-garden-railway-mcp-production.up.railway.app/health
+
+# Test search (triggers JinaV3 lazy load on first request)
+# Expect: ~24s first time, instant subsequent requests
 ```
 
 ## 📚 Documentation
