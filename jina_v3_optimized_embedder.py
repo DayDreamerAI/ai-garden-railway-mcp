@@ -105,8 +105,8 @@ class JinaV3OptimizedEmbedder:
         self.use_quantization = use_quantization
         self.device = device
         self.max_input_length = 8192  # Jina v3 token capacity
-        self.embedding_timeout = float(os.getenv("EMBEDDING_TIMEOUT", "10.0"))  # seconds
-        
+        self.embedding_timeout = float(os.getenv("EMBEDDING_TIMEOUT", "40.0"))  # seconds (Railway CPU needs ~24s for lazy load)
+
         # State management
         self.model = None
         self.tokenizer = None
@@ -114,10 +114,10 @@ class JinaV3OptimizedEmbedder:
         self.initialization_time = None
         self.using_transformers = False
 
-        # Lazy loading + automatic unloading (Railway memory optimization)
+        # Lazy loading + NO automatic unloading (keep model resident once loaded)
         self.last_used = None
-        self.idle_timeout = int(os.getenv("MODEL_IDLE_TIMEOUT", "300"))  # 5 minutes default
-        self.auto_unload_enabled = os.getenv("ENABLE_AUTO_UNLOAD", "true").lower() == "true"
+        self.idle_timeout = int(os.getenv("MODEL_IDLE_TIMEOUT", "300"))  # 5 minutes default (not used)
+        self.auto_unload_enabled = os.getenv("ENABLE_AUTO_UNLOAD", "false").lower() == "true"  # Disabled by default
         self._unload_task = None
         
         # Performance tracking

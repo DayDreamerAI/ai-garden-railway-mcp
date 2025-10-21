@@ -61,14 +61,18 @@ JINA_API_KEY=<your-jina-api-key>
 ### Optional Performance Variables
 
 ```env
-EMBEDDING_TIMEOUT=35  # Default: 10 (seconds)
+EMBEDDING_TIMEOUT=40        # Default: 40 seconds (configured for Railway CPU)
+ENABLE_AUTO_UNLOAD=false    # Default: false (keep model resident)
 ```
 
 **EMBEDDING_TIMEOUT**: Maximum time to wait for embedding generation before fallback.
-- **Default**: 10 seconds (too short for Railway CPU lazy loading!)
-- **Recommended**: 35 seconds (allows ~24s model load + safety buffer)
-- **Impact**: Prevents timeout errors during first GraphRAG query in PBC Desktop
-- **Set via**: `railway variables --set "EMBEDDING_TIMEOUT=35"`
+- **Default**: 40 seconds (allows ~24s CPU model load + safety buffer)
+- **Configured**: Optimized for Railway CPU lazy loading
+
+**ENABLE_AUTO_UNLOAD**: Whether to unload JinaV3 model after idle timeout.
+- **Default**: false (model stays resident once loaded)
+- **Benefit**: Instant subsequent queries, no reload needed
+- **Memory**: ~3.7GB persistent (acceptable for Railway environment)
 
 ## ⚡ Performance Characteristics
 
