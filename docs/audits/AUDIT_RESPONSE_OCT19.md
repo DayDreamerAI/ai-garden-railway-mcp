@@ -240,4 +240,4 @@ RETURN m.date
 
 **Document Status**: FINAL  
 **Created**: October 19, 2025  
-**Cross-Reference**: AUDIT_FIX_COMPLETE.md, V6_COMPLIANCE_AUDIT_STANDARDS.md
+**Cross-Reference**: AUDIT_FIX_COMPLETE.md, MEMORY_V6_COMPLIANCE_STANDARDS.md

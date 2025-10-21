@@ -49,5 +49,5 @@ This directory contains all V6 compliance audit reports and responses.
 
 ## Standards
 
-All audits follow **V6_COMPLIANCE_AUDIT_STANDARDS.md v3.1** located in:
-`/llm/memory/perennial/docs/standards/V6_COMPLIANCE_AUDIT_STANDARDS.md`
+All audits follow **MEMORY_V6_COMPLIANCE_STANDARDS.md v3.1** located in:
+`/llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md`

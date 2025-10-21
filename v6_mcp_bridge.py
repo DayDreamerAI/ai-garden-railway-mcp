@@ -759,7 +759,7 @@ class V6MCPBridge:
         Returns:
             bool: True if hierarchy exists or was created successfully
 
-        Reference: /llm/memory/perennial/docs/standards/V6_COMPLIANCE_AUDIT_STANDARDS.md
+        Reference: /llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md
         """
         try:
             # Parse date from ISO 8601 format
@@ -808,7 +808,7 @@ class V6MCPBridge:
         Validate observations against V6 Compliance Audit Standards (11 requirements).
 
         Implements automated enforcement of:
-        - /llm/memory/perennial/docs/standards/V6_COMPLIANCE_AUDIT_STANDARDS.md
+        - /llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md
 
         This method runs after observation creation to verify:
         1. V6 Node Labels (Observation:Perennial:Entity)

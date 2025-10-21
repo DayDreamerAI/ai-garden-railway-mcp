@@ -35,7 +35,7 @@ docs/
 **Compliance Documentation**:
 - [audits/AUDIT_RESPONSE_OCT19.md](audits/AUDIT_RESPONSE_OCT19.md) - Latest audit findings
 - [audits/AUDIT_FIX_COMPLETE.md](audits/AUDIT_FIX_COMPLETE.md) - Fix validation
-- V6 Standards: `/llm/memory/perennial/docs/standards/V6_COMPLIANCE_AUDIT_STANDARDS.md`
+- V6 Standards: `/llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md`
 
 **System Validation**:
 - V6 Core: 11/11 (100%) ✅
@@ -97,7 +97,7 @@ docs/
 - `/llm/memory/graphRAG/` - GraphRAG implementation
 
 **Standards**:
-- V6 Compliance: `/llm/memory/perennial/docs/standards/V6_COMPLIANCE_AUDIT_STANDARDS.md`
+- V6 Compliance: `/llm/memory/standards/MEMORY_V6_COMPLIANCE_STANDARDS.md`
 - Schema Enforcement: `/llm/mcp/servers/daydreamer-memory-mcp/SCHEMA_ENFORCEMENT_README.md`
 
 ## 🤝 Contributing
