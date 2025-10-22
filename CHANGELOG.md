@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.7.1] - 2025-10-22
+
+### 🔧 Stdio Sync - Observation Source Property
+
+**Critical Fix**: Sync Railway with stdio server post-v6.7.0 bug fixes (Oct 20-22)
+
+#### Fixed
+
+**Observation Source Property (stdio sync from commit 42866fb5)**
+- **Problem**: Railway observations missing `source` property for provenance tracking
+- **Impact**: Cannot distinguish observation origins (manual-reflection, git-hook, pr-workflow)
+- **Fix**: Added `source` parameter and property to `handle_add_observations`
+  - Parameter: `source = arguments.get("source", "manual-reflection")` (line 761)
+  - Cypher: `source: $source` in observation CREATE statement (line 840)
+  - Default: "manual-reflection" for backward compatibility
+- **Result**: Railway now matches stdio v6.7.0 observation schema exactly
+
+**Files Modified**:
+- mcp-claude-connector-memory-server.py: Lines 761, 840, 860 (3 changes)
+
+**Stdio Commits Integrated**:
+- 42866fb5: Add source and session_id properties to observations
+- Partial fix from f1850726 (search_observations already correct)
+- Schema compliance from f83a997a (already had OBS.* constants)
+
+**Deployment Status**: Ready for Railway deployment
+
+---
+
 ## [6.7.0] - 2025-10-20
 
 ### 🎯 Complete Stdio Parity - 100% Tool Coverage (47% → 100%)

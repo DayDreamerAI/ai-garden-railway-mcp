@@ -85,7 +85,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "6.7.0"  # Stdio Parity: Direct Cypher + MVCM + Oct 19 Fixes
+SERVER_VERSION = "6.7.1"  # Stdio Sync: Added observation source property (Oct 22 stdio fix)
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
@@ -758,6 +758,7 @@ async def handle_add_observations(arguments: dict) -> dict:
 
     entity_name = arguments["entity_name"]
     observations = arguments["observations"]
+    source = arguments.get("source", "manual-reflection")  # Default: manual-reflection
 
     results = {
         'v6_completed': False,
@@ -837,6 +838,7 @@ async def handle_add_observations(arguments: dict) -> dict:
                         created_at: datetime($timestamp),
                         semantic_theme: $semantic_theme,
                         conversation_id: $session_id,
+                        source: $source,
                         jina_vec_v3: $embedding_vector,
                         has_embedding: $has_embedding,
                         embedding_model: CASE WHEN $has_embedding THEN 'jina-embeddings-v3' ELSE null END,
@@ -856,6 +858,7 @@ async def handle_add_observations(arguments: dict) -> dict:
                         'content': obs_content,
                         'timestamp': timestamp_str,
                         'semantic_theme': theme,
+                        'source': source,
                         'embedding_vector': embedding_vector.tolist() if (embedding_vector is not None and hasattr(embedding_vector, 'tolist')) else embedding_vector,
                         'has_embedding': has_embedding
                     })

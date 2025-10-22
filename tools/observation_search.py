@@ -107,23 +107,22 @@ def search_observations(
         params['start_date'] = start_date
         params['end_date'] = end_date
 
-    # Filter: Entity mentions (via OBSERVATION_MENTIONS_CONCEPT)
+    # Filter: Entity ownership (via ENTITY_HAS_OBSERVATION)
+    # BUG FIX (Oct 21, 2025): Changed from OBSERVATION_MENTIONS_CONCEPT to ENTITY_HAS_OBSERVATION
+    # entity_filter means "show observations OWNED BY this entity", not "observations that mention this entity"
     if entity_filter:
         cypher_parts.append("""
-            MATCH (o)-[mentions:OBSERVATION_MENTIONS_CONCEPT]->(concept:Entity)
-            WHERE concept.name = $entity_filter
-              AND mentions.confidence >= $confidence_min
+            MATCH (source_entity:Entity {name: $entity_filter})-[:ENTITY_HAS_OBSERVATION]->(o)
         """)
         params['entity_filter'] = entity_filter
         params['confidence_min'] = confidence_min
     else:
+        # Get source entity (the entity that has this observation)
+        cypher_parts.append("""
+            OPTIONAL MATCH (source_entity:Entity)-[:ENTITY_HAS_OBSERVATION]->(o)
+        """)
         # Still apply confidence filter to all concept links
         params['confidence_min'] = confidence_min
-
-    # Get source entity (the entity that has this observation)
-    cypher_parts.append("""
-        OPTIONAL MATCH (source_entity:Entity)-[:ENTITY_HAS_OBSERVATION]->(o)
-    """)
 
     # Get all linked concepts (for result enrichment)
     cypher_parts.append("""

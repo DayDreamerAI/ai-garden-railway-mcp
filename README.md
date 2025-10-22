@@ -2,7 +2,7 @@
 
 **Production Deployment for Claude Custom Connectors**
 
-**Version**: 6.7.0 (October 20, 2025)
+**Version**: 6.7.1 (October 22, 2025)
 **Stdio Parity**: 100% (17/17 tools)
 
 ## 🚀 Live Deployment
@@ -145,6 +145,12 @@ curl https://ai-garden-railway-mcp-production.up.railway.app/health
 - **GraphRAG**: Phase 3 complete (241 communities, global/local search operational)
 
 ## 🆕 Recent Updates
+
+**v6.7.1 (October 22, 2025)** - 🔧 STDIO SYNC - Observation Source Property:
+- ✅ **Source Property Added**: Observations now include `source` property for provenance tracking
+- ✅ **Stdio Parity Maintained**: Matches stdio v6.7.0 post-Oct 21 fixes
+- ✅ **Backward Compatible**: Defaults to "manual-reflection" for existing workflows
+- ✅ **Schema Compliant**: Full V6 observation property compliance (id, content, created_at, semantic_theme, conversation_id, source)
 
 **v6.7.0 (October 20, 2025)** - 🎯 COMPLETE STDIO PARITY - 47% → 100% Tool Coverage:
 - ✅ **V6 Bridge Removed**: Deprecated V6MCPBridge replaced with direct Cypher implementation (stdio v6.6.0)
