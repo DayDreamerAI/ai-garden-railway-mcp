@@ -1329,8 +1329,9 @@ async def handle_search_observations(arguments: dict) -> dict:
                    o.semantic_theme as primary_theme,
                    collect(DISTINCT {entity: e.name, confidence: r.confidence}) as linked_concepts,
                    d.date as occurred_on,
-                   source.name as source_entity
-            ORDER BY o.created_at DESC
+                   source.name as source_entity,
+                   o.created_at as obs_created_at
+            ORDER BY obs_created_at DESC
             SKIP $offset
             LIMIT $limit
         """)
