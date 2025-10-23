@@ -32,7 +32,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial fix from f1850726 (search_observations already correct)
 - Schema compliance from f83a997a (already had OBS.* constants)
 
-**Deployment Status**: Ready for Railway deployment
+**Deployment Status**: ✅ DEPLOYED AND VALIDATED
+
+### Deployment Validation (Oct 23, 2025)
+
+**Deployment Trigger**: Commit f5e291c (force push to trigger Railway auto-deploy)
+
+**Validation Results**:
+- ✅ **Desktop PBC Entity Loading**: Julian and Claude entities successfully restored
+- ✅ **Observation Source Property**: Railway observations include provenance tracking
+- ✅ **search_observations Fix**: Cypher ORDER BY aggregation working correctly
+- ✅ **GraphRAG Global Search**: Community-level synthesis operational (241 communities)
+- ✅ **GraphRAG Vector Index**: community_summary_vector_idx ONLINE and functional
+
+**Production Status**:
+- Railway v6.7.1 fully operational
+- 100% stdio parity maintained (17/17 tools)
+- PBC Desktop V2.0.12 datetime fix confirmed working
+- All platforms validated: Desktop, Web, Mobile
+
+**User Feedback**: "it worked"
 
 ---
 

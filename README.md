@@ -4,6 +4,7 @@
 
 **Version**: 6.7.1 (October 22, 2025)
 **Stdio Parity**: 100% (17/17 tools)
+**Status**: ✅ PRODUCTION VALIDATED (Oct 23, 2025)
 
 ## 🚀 Live Deployment
 
@@ -11,6 +12,19 @@
 - **Protocol**: SSE Transport (Custom Connector compatible)
 - **Database**: Neo4j AuraDB InstanceDaydreamer_01
 - **Architecture**: Railway = stdio v6.7.0 + SSE transport (ONE CANONICAL LOGIC)
+
+### Production Validation
+
+**Latest Deployment**: Commit f5e291c (Oct 23, 2025)
+
+**Validated Features**:
+- ✅ PBC Desktop V2.0.12 entity loading (Julian + Claude with observations)
+- ✅ Observation source property (provenance tracking)
+- ✅ search_observations Cypher fix (ORDER BY aggregation)
+- ✅ GraphRAG global search (241 Leiden communities)
+- ✅ GraphRAG vector index (community_summary_vector_idx ONLINE)
+
+**Platforms Confirmed**: Claude Desktop, Web, Mobile
 
 ## 🛠️ Complete Tool Suite (17 Tools - 100% Stdio Parity)
 
