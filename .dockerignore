@@ -1,0 +1,66 @@
+# Daydreamer MCP Connector - Docker Ignore
+# Exclude unnecessary files from container image
+# Created: October 25, 2025
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files (secrets managed via Cloud Run)
+.env
+.env.*
+!.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Railway specific
+railway.toml
+.railway-trigger
+
+# Documentation (not needed in runtime)
+docs/
+archive/
+README.md
+CHANGELOG.md
+*.md
+!requirements.txt
+
+# Scripts (deployment/testing, not runtime)
+scripts/
+tools/migrate_v5_chunks_to_v6.py
+tools/reclassify_observations.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test files
+test_*.py
+*_test.py
+tests/
