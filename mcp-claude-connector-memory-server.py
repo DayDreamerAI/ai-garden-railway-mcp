@@ -1330,27 +1330,36 @@ async def handle_search_observations(arguments: dict) -> dict:
         date_range = tuple(normalized_range)
 
     try:
-        # Build dynamic Cypher query
-        cypher_parts = ["MATCH (o:Observation:Perennial:Entity)", "WHERE o.content IS NOT NULL"]
+        # Build dynamic Cypher query - MATCH clauses first, then WHERE conditions
+        match_parts = ["MATCH (o:Observation:Perennial:Entity)"]
+        where_parts = ["o.content IS NOT NULL"]
         params = {"confidence_min": confidence_min, "limit": limit, "offset": offset}
 
-        if theme:
-            cypher_parts.append("AND o.semantic_theme = $theme")
-            params['theme'] = theme
-
+        # Add optional match patterns based on filters
         if date_range:
             start_date, end_date = date_range
-            cypher_parts.append("MATCH (o)-[:OCCURRED_ON]->(day:Day)")
-            cypher_parts.append("WHERE day.date >= date($start_date) AND day.date <= date($end_date)")
+            match_parts.append("MATCH (o)-[:OCCURRED_ON]->(day:Day)")
+            where_parts.append("day.date >= date($start_date)")
+            where_parts.append("day.date <= date($end_date)")
             params['start_date'] = start_date
             params['end_date'] = end_date
 
         if entity_filter:
-            cypher_parts.append("MATCH (o)-[mentions:MENTIONS_ENTITY]->(concept:Entity)")
-            cypher_parts.append("WHERE concept.name = $entity_filter AND mentions.confidence >= $confidence_min")
+            match_parts.append("MATCH (o)-[mentions:MENTIONS_ENTITY]->(concept:Entity)")
+            where_parts.append("concept.name = $entity_filter")
+            where_parts.append("mentions.confidence >= $confidence_min")
             params['entity_filter'] = entity_filter
 
-        # Add source entity and relationships
+        # Add theme filter to WHERE conditions
+        if theme:
+            where_parts.append("o.semantic_theme = $theme")
+            params['theme'] = theme
+
+        # Combine MATCH and WHERE
+        cypher_parts = match_parts + ["WHERE " + " AND ".join(where_parts)]
+
+        # Add source entity and relationships (OPTIONAL MATCH must come after WHERE)
+        cypher_parts.append("WITH o")
         cypher_parts.append("OPTIONAL MATCH (source:Entity)-[:ENTITY_HAS_OBSERVATION]->(o)")
         cypher_parts.append("OPTIONAL MATCH (o)-[r:MENTIONS_ENTITY]->(e:Entity) WHERE r.confidence >= $confidence_min")
         cypher_parts.append("OPTIONAL MATCH (o)-[:OCCURRED_ON]->(d:Day)")
