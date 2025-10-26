@@ -67,6 +67,8 @@ ENV PYTHONUNBUFFERED=1
 # Build and runtime use same cache location for consistency
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
+ENV TRANSFORMERS_OFFLINE=1
+ENV HF_HUB_OFFLINE=1
 
 # Health check (Cloud Run will use /health endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
