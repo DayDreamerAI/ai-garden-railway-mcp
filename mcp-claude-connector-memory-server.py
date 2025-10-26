@@ -2117,18 +2117,30 @@ async def initialize_server():
     # Start background cleanup task
     asyncio.create_task(cleanup_stale_sessions())
 
-    # Initialize JinaV3 if available (lazy loading - no warmup to avoid 3.2GB startup memory)
+    # Initialize JinaV3 if available
     if JINA_AVAILABLE:
         try:
-            # Use platform-appropriate device (CPU for Railway, MPS for MacBook)
+            # Use platform-appropriate device (CPU for Cloud Run/Railway, MPS for MacBook)
             jina_embedder = JinaV3OptimizedEmbedder(
                 target_dimensions=256,
                 use_quantization=True,
                 device=EMBEDDER_DEVICE
             )
-            # REMOVED: warmup call that defeats lazy loading (v6.3.4 fix)
-            # Model will load on first actual encode_single() call (true lazy loading)
-            logger.info(f"✅ JinaV3 embedder configured for lazy loading (device={EMBEDDER_DEVICE})")
+
+            # Conditional preloading: Cloud Run (predictable performance) vs Railway (memory optimization)
+            PRELOAD_EMBEDDINGS = os.getenv("PRELOAD_EMBEDDINGS", "false").lower() == "true"
+            if PRELOAD_EMBEDDINGS:
+                logger.info("🔄 Preloading JinaV3 model at startup (Cloud Run optimization)...")
+                start_time = time.time()
+                success = jina_embedder.initialize()
+                elapsed = time.time() - start_time
+                if success:
+                    logger.info(f"✅ JinaV3 model loaded and ready ({elapsed:.1f}s, device={EMBEDDER_DEVICE})")
+                else:
+                    logger.warning("⚠️ JinaV3 preload failed, will use lazy loading")
+            else:
+                # Railway memory optimization: lazy loading on first use
+                logger.info(f"✅ JinaV3 configured for lazy loading (device={EMBEDDER_DEVICE})")
         except Exception as e:
             logger.warning(f"⚠️ JinaV3 configuration failed: {e}")
             jina_embedder = None
