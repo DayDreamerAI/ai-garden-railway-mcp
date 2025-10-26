@@ -1,9 +1,9 @@
 # Daydreamer MCP Connector - Cloud Run Deployment
-# Python 3.13.5 (matching Railway environment)
+# Python 3.11 (ML library compatibility - sentencepiece requires <3.13)
 # Created: October 25, 2025
 # Purpose: Railway → Cloud Run migration (lift-and-shift)
 
-FROM python:3.13.5-slim
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
