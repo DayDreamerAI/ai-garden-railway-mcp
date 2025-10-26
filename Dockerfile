@@ -17,8 +17,25 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first (Docker layer caching)
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with optimizations for Cloud Run build speed
+# Install core deps first (fast), then ML deps (slow but cached)
+RUN pip install --no-cache-dir \
+    neo4j==5.26.0 \
+    aiohttp==3.10.11 \
+    python-dotenv==1.0.1 \
+    PyJWT==2.9.0 \
+    cryptography==43.0.3 \
+    && pip install --no-cache-dir \
+    torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir \
+    transformers==4.45.0 \
+    sentence-transformers==3.2.1 \
+    protobuf==5.28.3 \
+    sentencepiece==0.2.0 \
+    safetensors==0.4.5 \
+    numpy==1.26.4 \
+    psutil==6.1.0 \
+    einops==0.8.0
 
 # Copy application code
 COPY mcp-claude-connector-memory-server.py .
