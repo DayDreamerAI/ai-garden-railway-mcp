@@ -1,9 +1,13 @@
-# Core dependencies - pinned versions for Railway stability
+# Core dependencies - pinned versions for Railway/Cloud Run stability
 neo4j==5.26.0
 aiohttp==3.10.11
 python-dotenv==1.0.1
 
-# JinaV3 Embeddings Support - CPU-optimized for Railway
+# OAuth 2.1 Support (MCP Authorization Specification 2025-03-26)
+PyJWT==2.9.0
+cryptography==43.0.3
+
+# JinaV3 Embeddings Support - CPU-optimized for Railway/Cloud Run
 transformers==4.45.0
 torch==2.5.1
 sentence-transformers==3.2.1

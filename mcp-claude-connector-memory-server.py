@@ -37,12 +37,16 @@ import logging
 import time
 import hashlib
 import random
+import secrets
 from datetime import datetime, UTC
 from uuid import uuid4
 from aiohttp import web
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from typing import Any, List, Dict, Optional
+
+# OAuth 2.1 Module (MCP Authorization Specification 2025-03-26)
+from oauth import TokenManager, ClientRegistry, setup_oauth_routes
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -93,6 +97,13 @@ NEO4J_URI = os.environ.get('NEO4J_URI')
 NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME', 'neo4j')
 NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
 
+# OAuth 2.1 Configuration (MCP Authorization Specification 2025-03-26)
+OAUTH_ENABLED = os.getenv('OAUTH_ENABLED', 'true').lower() == 'true'
+OAUTH_ISSUER = os.getenv('OAUTH_ISSUER', 'https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app')
+OAUTH_JWT_SECRET = os.getenv('OAUTH_JWT_SECRET')  # Required for OAuth, set from Secret Manager
+OAUTH_TOKEN_EXPIRY = int(os.getenv('OAUTH_TOKEN_EXPIRY', '3600'))  # 1 hour default
+RAILWAY_BEARER_TOKEN = os.getenv('RAILWAY_BEARER_TOKEN', '')  # Legacy auth (backward compatibility)
+
 # Platform Detection for Embedder Device (Oct 15, 2025)
 # Railway runs Linux, local development uses MacBook (Darwin/MPS)
 PLATFORM = platform.system()
@@ -137,6 +148,10 @@ jina_embedder = None
 embedding_cache = {}
 MAX_CACHE_SIZE = 1000
 semantic_theme_classifier = None  # Direct Cypher implementation (v6.6.0+, replaces V6 Bridge)
+
+# OAuth components (initialized in main)
+oauth_token_manager = None
+oauth_client_registry = None
 
 # Railway Memory Protection (Oct 18, 2025)
 # Increased from 5 to 10 for multi-platform usage (Desktop + Web + Mobile)
@@ -2025,6 +2040,71 @@ async def cleanup_stale_sessions():
         if stale_sessions:
             logger.info(f"🧹 Cleaned {len(stale_sessions)} stale sessions (active: {len(sse_sessions)}/{MAX_SSE_CONNECTIONS})")
 
+# =================== AUTHENTICATION MIDDLEWARE ===================
+
+@web.middleware
+async def auth_middleware(request, handler):
+    """
+    Authentication middleware for protected MCP endpoints.
+
+    Supports two auth modes:
+    1. OAuth 2.1 JWT tokens (primary)
+    2. Legacy bearer token (backward compatibility)
+
+    Skips authentication for:
+    - OAuth discovery/registration endpoints
+    - Health check endpoints
+    - OPTIONS requests (CORS preflight)
+    """
+    # Skip auth for OAuth endpoints and public endpoints
+    skip_paths = [
+        '/.well-known/oauth-authorization-server',
+        '/.well-known/oauth-protected-resource',
+        '/register',
+        '/authorize',
+        '/token',
+        '/health',
+        '/'
+    ]
+
+    if request.path in skip_paths or request.method == 'OPTIONS':
+        return await handler(request)
+
+    # Check Authorization header
+    auth_header = request.headers.get('Authorization', '')
+
+    if not auth_header.startswith('Bearer '):
+        return web.Response(
+            text='Unauthorized - Bearer token required',
+            status=401,
+            headers={'WWW-Authenticate': 'Bearer realm="MCP Server"'}
+        )
+
+    token = auth_header[7:]  # Remove 'Bearer ' prefix
+
+    # Try legacy bearer token first (backward compatibility)
+    if RAILWAY_BEARER_TOKEN and token == RAILWAY_BEARER_TOKEN:
+        request['auth'] = {"type": "bearer", "client": "legacy"}
+        logger.debug("Legacy bearer token authenticated")
+        return await handler(request)
+
+    # Try OAuth JWT token
+    if OAUTH_ENABLED and oauth_token_manager:
+        payload = oauth_token_manager.validate_token(token)
+        if payload:
+            request['auth'] = {"type": "jwt", "client": payload.get("sub")}
+            logger.debug(f"OAuth client authenticated: {payload.get('sub')}")
+            return await handler(request)
+
+    # Invalid token
+    return web.Response(
+        text='Unauthorized - Invalid or expired token',
+        status=401,
+        headers={'WWW-Authenticate': 'Bearer realm="MCP Server"'}
+    )
+
+# =================== SERVER INITIALIZATION ===================
+
 async def initialize_server():
     """Initialize server components"""
     global jina_embedder
@@ -2059,9 +2139,41 @@ async def main():
     """Start HTTP server"""
     await initialize_server()
 
-    app = web.Application()
+    # Initialize OAuth components
+    global oauth_token_manager, oauth_client_registry
 
-    # Add routes
+    if OAUTH_ENABLED:
+        # Generate temporary secret if not set (development mode)
+        jwt_secret = OAUTH_JWT_SECRET
+        if not jwt_secret:
+            logger.warning("⚠️ OAUTH_JWT_SECRET not set - generating temporary secret (not for production!)")
+            jwt_secret = secrets.token_urlsafe(32)
+
+        oauth_token_manager = TokenManager(
+            secret_key=jwt_secret,
+            issuer=OAUTH_ISSUER,
+            token_expiry=OAUTH_TOKEN_EXPIRY
+        )
+        oauth_client_registry = ClientRegistry()
+        logger.info(f"✅ OAuth 2.1 enabled (issuer: {OAUTH_ISSUER})")
+    else:
+        logger.info("ℹ️ OAuth 2.1 disabled (OAUTH_ENABLED=false)")
+
+    # Create app with authentication middleware
+    app = web.Application(middlewares=[auth_middleware])
+
+    # Store OAuth components for route handlers
+    if OAUTH_ENABLED:
+        app["oauth_token_manager"] = oauth_token_manager
+        app["oauth_registry"] = oauth_client_registry
+        app["oauth_issuer"] = OAUTH_ISSUER
+
+    # Setup OAuth routes FIRST (before MCP routes)
+    if OAUTH_ENABLED:
+        setup_oauth_routes(app)
+        logger.info("✅ OAuth 2.1 endpoints configured")
+
+    # Add MCP routes
     app.router.add_get('/sse', handle_sse)
     app.router.add_post('/messages', handle_post_message)
     app.router.add_get('/health', health_check)
@@ -2092,7 +2204,10 @@ async def main():
     logger.info(f"🚀 Daydreamer Railway MCP Server v{SERVER_VERSION} listening on http://0.0.0.0:{PORT}")
     logger.info(f"📊 Neo4j: {NEO4J_URI}")
     logger.info(f"🔧 Tools available: {len(TOOL_REGISTRY)}")
-    logger.info("📍 Endpoints: /sse (SSE), /messages (POST), /health")
+    logger.info(f"🔐 OAuth 2.1: {'✅ Enabled' if OAUTH_ENABLED else '❌ Disabled'}")
+    if OAUTH_ENABLED:
+        logger.info(f"📍 OAuth Endpoints: /.well-known/oauth-authorization-server, /register, /authorize, /token")
+    logger.info("📍 MCP Endpoints: /sse (SSE), /messages (POST), /health")
 
     # Keep running
     await asyncio.Event().wait()
