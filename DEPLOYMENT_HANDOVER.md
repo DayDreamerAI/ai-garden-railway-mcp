@@ -24,7 +24,7 @@ Successfully migrated Daydreamer MCP connector from Railway to Google Cloud Run 
 | **Service Name** | daydreamer-mcp-connector |
 | **Project** | daydreamer-476223 |
 | **Project Number** | 480492152047 |
-| **Active Revision** | 00017-6wn |
+| **Active Revision** | 00018-98g |
 | **Service URL** | https://daydreamer-mcp-connector-480492152047.us-central1.run.app |
 | **SSE Endpoint** | https://daydreamer-mcp-connector-480492152047.us-central1.run.app/sse |
 | **Database** | Neo4j AuraDB (neo4j+s://8c3b5488.databases.neo4j.io) |
@@ -37,11 +37,12 @@ Platform: managed (fully managed Cloud Run)
 Region: us-central1
 Concurrency: 80 (default)
 Max Instances: 3
-CPU: 1 vCPU
-Memory: 2GiB (increased for JinaV3 lazy loading)
+CPU: 2 vCPU (increased for model download performance)
+Memory: 4GiB (required for JinaV3 runtime download)
 Timeout: 300 seconds (5 minutes)
 Authentication: Allow unauthenticated (OAuth handled by app)
-JinaV3 Loading: Lazy (on first embedding request, ~20-30s delay)
+JinaV3 Loading: Lazy (on first embedding request, downloads ~3GB model)
+Note: Pre-download during build not working reliably, model downloads on first use
 ```
 
 ---
@@ -135,8 +136,8 @@ gcloud run deploy daydreamer-mcp-connector \
   --platform managed \
   --allow-unauthenticated \
   --max-instances 3 \
-  --memory 2Gi \
-  --cpu 1 \
+  --memory 4Gi \
+  --cpu 2 \
   --timeout 300 \
   --set-env-vars "NEO4J_URI=neo4j+s://8c3b5488.databases.neo4j.io,NEO4J_USERNAME=neo4j,MCP_TRANSPORT=sse,ENABLE_CORS=true,REQUIRE_AUTHENTICATION=true,OAUTH_ENABLED=true,OAUTH_ISSUER=https://daydreamer-mcp-connector-480492152047.us-central1.run.app,OAUTH_TOKEN_EXPIRY=3600" \
   --set-secrets "NEO4J_PASSWORD=neo4j-password:latest,RAILWAY_BEARER_TOKEN=mcp-bearer-token:latest,OAUTH_JWT_SECRET=oauth-jwt-secret:latest" \
