@@ -55,6 +55,12 @@ COPY tools/ ./tools/
 # Server will auto-detect Linux platform and use CPU (no MPS)
 ENV PYTHONUNBUFFERED=1
 
+# HuggingFace cache configuration for Cloud Run's read-only filesystem
+# Cloud Run only allows writes to /tmp
+ENV HF_HOME=/tmp/huggingface
+ENV TRANSFORMERS_CACHE=/tmp/huggingface/transformers
+ENV HF_DATASETS_CACHE=/tmp/huggingface/datasets
+
 # Health check (Cloud Run will use /health endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8080}/health')"
