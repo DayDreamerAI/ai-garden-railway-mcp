@@ -19,3 +19,4 @@ einops==0.8.0
 protobuf==5.28.3
 sentencepiece==0.2.0
 safetensors==0.4.5
+tokenizers==0.20.3

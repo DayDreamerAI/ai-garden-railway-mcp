@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir \
     protobuf==5.28.3 \
     sentencepiece==0.2.0 \
     safetensors==0.4.5 \
+    tokenizers==0.20.3 \
     numpy==1.26.4 \
     psutil==6.1.0 \
     einops==0.8.0
