@@ -38,6 +38,12 @@ RUN pip install --no-cache-dir \
     psutil==6.1.0 \
     einops==0.8.0
 
+# Pre-download JinaV3 model during build to avoid runtime download issues
+# This ensures the model is baked into the container image
+RUN python -c "from transformers import AutoModel, AutoTokenizer; \
+    AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); \
+    AutoModel.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True)"
+
 # Copy application code
 COPY mcp-claude-connector-memory-server.py .
 COPY property_names.py .
