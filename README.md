@@ -1,30 +1,105 @@
-# Daydreamer Railway MCP Server
+# Daydreamer MCP Server - Cloud Run + OAuth 2.1
 
-**Production Deployment for Claude Custom Connectors**
+**Multi-Platform Memory Sovereignty: Desktop + Web + Mobile**
 
-**Version**: 6.7.1 (October 22, 2025)
+**Version**: 6.7.2+oauth2.1 (October 26, 2025)
 **Stdio Parity**: 100% (17/17 tools)
-**Status**: ✅ PRODUCTION VALIDATED (Oct 23, 2025)
+**Status**: ✅ PRODUCTION - OAUTH 2.1 COMPLETE
 
-## 🚀 Live Deployment
+## 🚀 Live Deployment (Cloud Run - Primary)
 
-- **URL**: https://ai-garden-railway-mcp-production.up.railway.app
-- **Protocol**: SSE Transport (Custom Connector compatible)
+- **Service URL**: https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app
+- **SSE Endpoint**: https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app/sse
+- **Platform**: Google Cloud Run (serverless, auto-scaling)
+- **Revision**: 00007-phg (serving 100% traffic)
+- **Protocol**: SSE Transport + OAuth 2.1
 - **Database**: Neo4j AuraDB InstanceDaydreamer_01
-- **Architecture**: Railway = stdio v6.7.0 + SSE transport (ONE CANONICAL LOGIC)
+- **Cost**: $0-2/month (vs Railway $20+/month)
+
+### 🔐 OAuth 2.1 Authentication
+
+**Dynamic Client Registration** - No manual credentials needed!
+
+Claude Web/Mobile automatically:
+1. Discovers OAuth endpoints (`/.well-known/oauth-authorization-server` + `/.well-known/oauth-protected-resource`)
+2. Registers as OAuth client via `/register` endpoint
+3. Obtains authorization code with PKCE S256
+4. Exchanges code for JWT access token (1hr expiry)
+5. Connects to SSE endpoint with Bearer token
+
+**RFC Compliance**:
+- ✅ RFC 7591: Dynamic Client Registration
+- ✅ RFC 7636: PKCE with S256
+- ✅ RFC 8414 Section 3: Authorization Server Metadata
+- ✅ RFC 8414 Section 5: Protected Resource Metadata
+- ✅ MCP Authorization Specification 2025-03-26
+
+## 📱 Claude Web/Mobile Custom Connector Setup
+
+### Quick Setup
+
+1. **Open Claude Web** → Settings → Custom Connectors → Add Custom Connector
+2. **Enter Details**:
+   - **Name**: Daydreamer Memory
+   - **URL**: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app/sse`
+   - ⚠️ **IMPORTANT**: Must include `/sse` endpoint path
+3. **Click "Connect"**
+4. **OAuth Flow**: Automatic (no credentials needed)
+   - Client registration
+   - Authorization
+   - Token exchange
+   - Connection established
+
+### Troubleshooting
+
+**"Disconnected" status after adding connector?**
+- ✅ Verify URL includes `/sse` path
+- ❌ Wrong: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app` (base URL alone)
+- ✅ Correct: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app/sse`
+
+**OAuth flow details** (for debugging):
+- View logs: `gcloud run services logs read daydreamer-mcp-connector --region us-central1`
+- Expected: Client registration → Authorization → Token → SSE connection
+- Client IDs: Auto-generated like `mcp_<random>`
+
+## 🖥️ Claude Desktop Setup (Stdio - Alternative)
+
+For Claude Desktop, use the stdio MCP server (no OAuth needed):
+
+```json
+{
+  "mcpServers": {
+    "daydreamer-memory": {
+      "command": "python",
+      "args": ["/path/to/daydreamer-mcp/server/main.py"]
+    }
+  }
+}
+```
+
+## 🔄 Railway Deployment (Legacy - Backup)
+
+**URL**: https://ai-garden-railway-mcp-production.up.railway.app
+**Status**: Active (will be decommissioned after 1 week Cloud Run validation)
+**Auth**: Legacy bearer token (backward compatibility)
 
 ### Production Validation
 
-**Latest Deployment**: Commit f5e291c (Oct 23, 2025)
+**Cloud Run Deployment**: Commit c5cfe4d (Oct 26, 2025)
 
 **Validated Features**:
+- ✅ OAuth 2.1 complete (5 endpoints operational)
+- ✅ Dynamic Client Registration (DCR) working
+- ✅ PKCE S256 verification passing
+- ✅ JWT access tokens (HS256, 1hr expiry)
+- ✅ Claude Web custom connector connected
 - ✅ PBC Desktop V2.0.12 entity loading (Julian + Claude with observations)
 - ✅ Observation source property (provenance tracking)
 - ✅ search_observations Cypher fix (ORDER BY aggregation)
 - ✅ GraphRAG global search (241 Leiden communities)
 - ✅ GraphRAG vector index (community_summary_vector_idx ONLINE)
 
-**Platforms Confirmed**: Claude Desktop, Web, Mobile
+**Platforms Confirmed**: Claude Desktop (stdio), Claude Web (OAuth + SSE), Mobile (OAuth + SSE)
 
 ## 🛠️ Complete Tool Suite (17 Tools - 100% Stdio Parity)
 

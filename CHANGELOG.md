@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.7.2+oauth2.1] - 2025-10-26
+
+### 🔐 OAuth 2.1 Complete Implementation + Cloud Run Production
+
+**Major Feature**: Full OAuth 2.1 Authorization + Resource Server for Claude Web/Mobile custom connector support
+
+#### Added
+
+**OAuth 2.1 Module (450 lines, 4 modules)**:
+- `oauth/__init__.py`: Module exports
+- `oauth/pkce.py`: PKCE S256 verification (RFC 7636)
+- `oauth/token_manager.py`: JWT lifecycle management (HS256, 1hr expiry)
+- `oauth/client_registry.py`: Dynamic Client Registration (RFC 7591) + auth code management
+- `oauth/server.py`: OAuth endpoints + discovery metadata (170 lines)
+
+**Discovery Endpoints** (RFC 8414):
+- `/.well-known/oauth-authorization-server` - Authorization Server metadata (Section 3)
+- `/.well-known/oauth-protected-resource` - **Protected Resource metadata (Section 5)** ← Critical for Claude Web
+- `/register` - Dynamic client registration (no pre-shared credentials needed)
+- `/authorize` - Authorization with PKCE S256 code challenge
+- `/token` - Token exchange with PKCE verification
+
+**Cloud Run Deployment**:
+- `Dockerfile` - Multi-stage build with Python 3.11
+- `.env.cloudrun-test` - Cloud Run environment configuration
+- Deployed to: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app`
+- Revision: `00007-phg` (serving 100% traffic)
+
+#### Changed
+
+**Authentication Middleware** (`mcp-claude-connector-memory-server.py`):
+- Added dual-mode authentication:
+  1. OAuth 2.1 JWT validation (primary) - HS256 signed, 1hr expiry
+  2. Legacy bearer token (backward compatibility with Railway)
+- Updated `skip_paths` to allow unauthenticated access to both OAuth discovery endpoints
+- Added auth context to requests: `request['auth'] = {"type": "jwt"|"bearer", "client": <client_id>}`
+
+**Dependencies** (`requirements.txt`):
+- Added `PyJWT==2.9.0` - JWT token creation and validation
+- Added `cryptography==43.0.3` - Cryptographic primitives for JWT
+
+#### Fixed
+
+**OAuth Protected Resource Discovery** (Session 2 completion):
+- **Problem**: Claude Web looked for `/.well-known/oauth-protected-resource` → returned 401
+- **Root Cause**: RFC 8414 Section 5 (Protected Resource metadata) not implemented
+- **Impact**: OAuth flow succeeded but connector stayed "Disconnected"
+- **Solution**: Added `handle_protected_resource()` endpoint (27 lines)
+  - Returns resource server metadata (authorization_servers, scopes, bearer methods)
+  - Updated auth middleware to skip authentication for RS discovery endpoint
+- **Result**: Claude Web custom connector connects successfully
+
+**MCP SSE Endpoint URL Format**:
+- **Discovery**: Claude Web requires explicit `/sse` path in connector URL
+- **Correct Format**: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app/sse`
+- **Wrong Format**: `https://daydreamer-mcp-connector-6j5i7oc4na-uc.a.run.app` (base URL alone)
+- **Reason**: No auto-discovery mechanism for SSE endpoint after OAuth completion
+
+#### Deployment
+
+**Cloud Run Production** (revision 00007-phg):
+- ✅ OAuth 2.1 fully operational (all 5 endpoints)
+- ✅ Dynamic Client Registration working (no manual credentials needed)
+- ✅ PKCE S256 verification passing
+- ✅ JWT access tokens (HS256, 1hr expiry, includes scope and jti)
+- ✅ Claude Web custom connector connected and functional
+- ✅ Neo4j AuraDB connected (17 MCP tools available)
+- ✅ Multi-platform access: Desktop (stdio) + Web/Mobile (SSE + OAuth)
+
+**Cost Optimization**:
+- **Before**: Railway $20+/month
+- **After**: Cloud Run $0-2/month (serverless, pay-per-request)
+- **Annual Savings**: $216-240
+
+#### RFC Compliance
+
+✅ RFC 7591: Dynamic Client Registration
+✅ RFC 7636: PKCE with S256 code challenge method
+✅ RFC 8414 Section 3: Authorization Server Metadata
+✅ RFC 8414 Section 5: Protected Resource Metadata
+✅ MCP Authorization Specification 2025-03-26
+
+#### Testing
+
+**OAuth Flow Validation**:
+1. ✅ Authorization Server discovery
+2. ✅ Protected Resource discovery
+3. ✅ Client registration (auto-generated client_id/secret)
+4. ✅ Authorization request (PKCE code_challenge)
+5. ✅ Token exchange (PKCE verification + JWT issuance)
+6. ✅ SSE connection with Bearer token authentication
+
+**Production Logs** (Oct 26, 2025):
+```
+OAuth client registered: mcp_Xm2mOeQjJVE-nyjNn9q2IQ (Claude)
+Authorization code issued for client mcp_Xm2mOeQjJVE-nyjNn9q2IQ
+Access token issued for client mcp_Xm2mOeQjJVE-nyjNn9q2IQ
+```
+
+#### Technical Details
+
+**OAuth Architecture**:
+- **Pattern**: All-in-one (server is both Authorization Server AND Resource Server)
+- **Token Type**: JWT (not opaque tokens)
+- **Token Signing**: HS256 with secret from Google Secret Manager
+- **Token Expiry**: 3600 seconds (1 hour)
+- **Client Authentication**: client_secret_post (DCR provides credentials)
+- **Authorization Grant**: authorization_code with PKCE S256
+
+**Security Features**:
+- PKCE prevents authorization code interception attacks
+- S256 code challenge method (SHA-256 hash)
+- JWT tokens include jti (JWT ID) for potential revocation tracking
+- HTTPS-only redirect URIs (except localhost for testing)
+- Automatic client secret generation (cryptographically secure)
+
+#### Related Commits
+
+- **c5cfe4d**: Complete OAuth 2.1 implementation with Protected Resource metadata
+- **790a6545**: OAuth initial implementation + documentation organization
+- Cloud Run revision 00005-4gq: Initial OAuth deployment (AS metadata only)
+- Cloud Run revision 00007-phg: Protected Resource metadata fix (production)
+
+#### Documentation
+
+- Updated README.md with OAuth 2.1 architecture and Claude Web setup
+- Created `/docs/oauth/` directory with implementation guides
+- Updated `/docs/cloudrun/` with deployment procedures
+- Lessons learned captured: RFC 8414 Section 5 requirement for Claude Web
+
+---
+
 ## [6.7.1] - 2025-10-22
 
 ### 🔧 Stdio Sync - Observation Source Property
