@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir \
     python-dotenv==1.0.1 \
     PyJWT==2.9.0 \
     cryptography==43.0.3 \
-    && pip install --no-cache-dir \
-    torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.5.1 \
     && pip install --no-cache-dir \
     transformers==4.45.0 \
     sentence-transformers==3.2.1 \
