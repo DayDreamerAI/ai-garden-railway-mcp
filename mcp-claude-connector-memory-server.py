@@ -1311,6 +1311,24 @@ async def handle_search_observations(arguments: dict) -> dict:
     limit = arguments.get("limit", 50)
     offset = arguments.get("offset", 0)
 
+    # Normalize date_range inputs to YYYY-MM-DD format (handle both simple dates and full ISO datetime strings)
+    if date_range:
+        normalized_range = []
+        for date_input in date_range:
+            try:
+                if 'T' in date_input:
+                    # Full ISO datetime - extract date part
+                    date_normalized = datetime.fromisoformat(date_input.replace('Z', '+00:00')).strftime('%Y-%m-%d')
+                else:
+                    # Simple date format - validate and use as-is
+                    datetime.strptime(date_input, '%Y-%m-%d')
+                    date_normalized = date_input
+            except ValueError:
+                # If parsing fails, try to extract just the date part
+                date_normalized = date_input.split('T')[0] if 'T' in date_input else date_input
+            normalized_range.append(date_normalized)
+        date_range = tuple(normalized_range)
+
     try:
         # Build dynamic Cypher query
         cypher_parts = ["MATCH (o:Observation:Perennial:Entity)", "WHERE o.content IS NOT NULL"]
@@ -1396,6 +1414,21 @@ async def handle_search_conversations(arguments: dict) -> dict:
     date_range = arguments.get("date_range")
     min_messages = arguments.get("min_messages")
     max_results = arguments.get("max_results", 10)
+
+    # Normalize date_range inputs to YYYY-MM-DD format
+    if date_range:
+        normalized_range = []
+        for date_input in date_range:
+            try:
+                if 'T' in date_input:
+                    date_normalized = datetime.fromisoformat(date_input.replace('Z', '+00:00')).strftime('%Y-%m-%d')
+                else:
+                    datetime.strptime(date_input, '%Y-%m-%d')
+                    date_normalized = date_input
+            except ValueError:
+                date_normalized = date_input.split('T')[0] if 'T' in date_input else date_input
+            normalized_range.append(date_normalized)
+        date_range = tuple(normalized_range)
 
     try:
         query = "MATCH (s:ConversationSession) WHERE 1=1"
