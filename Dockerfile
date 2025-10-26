@@ -41,9 +41,11 @@ RUN pip install --no-cache-dir \
 # Pre-download JinaV3 model during build using transformers (matches runtime loader)
 # This ensures the model is baked into the container image
 # Using transformers for both download and load ensures cache compatibility
-ENV HF_HOME=/app/.cache/huggingface
+# IMPORTANT: Download BEFORE setting offline mode
 RUN mkdir -p /app/.cache/huggingface && \
-    python -c "from transformers import AutoModel, AutoTokenizer; tokenizer = AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); model = AutoModel.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); print('✅ Model downloaded')"
+    HF_HOME=/app/.cache/huggingface \
+    TRANSFORMERS_CACHE=/app/.cache/huggingface \
+    python -c "from transformers import AutoModel, AutoTokenizer; tokenizer = AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True, cache_dir='/app/.cache/huggingface'); model = AutoModel.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True, cache_dir='/app/.cache/huggingface'); print('✅ Model downloaded to /app/.cache/huggingface')"
 
 # Copy application code
 COPY mcp-claude-connector-memory-server.py .
