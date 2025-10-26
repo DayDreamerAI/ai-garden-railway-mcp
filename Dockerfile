@@ -38,9 +38,11 @@ RUN pip install --no-cache-dir \
     psutil==6.1.0 \
     einops==0.8.0
 
-# Pre-download JinaV3 model during build to avoid runtime download issues
-# This ensures the model is baked into the container image
-RUN python -c "from transformers import AutoModel, AutoTokenizer; \
+# Pre-download JinaV3 model during build to /app/.cache
+# This ensures the model is baked into the container image at a known location
+ENV HF_HOME=/app/.cache/huggingface
+RUN mkdir -p /app/.cache/huggingface && \
+    python -c "from transformers import AutoModel, AutoTokenizer; \
     AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); \
     AutoModel.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True)"
 
@@ -61,11 +63,10 @@ COPY tools/ ./tools/
 # Server will auto-detect Linux platform and use CPU (no MPS)
 ENV PYTHONUNBUFFERED=1
 
-# HuggingFace cache configuration for Cloud Run's read-only filesystem
-# Cloud Run only allows writes to /tmp
-ENV HF_HOME=/tmp/huggingface
-ENV TRANSFORMERS_CACHE=/tmp/huggingface/transformers
-ENV HF_DATASETS_CACHE=/tmp/huggingface/datasets
+# HuggingFace cache uses /app/.cache (pre-populated during build)
+# Model files are baked into the container image at this location
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface/transformers
+ENV HF_DATASETS_CACHE=/app/.cache/huggingface/datasets
 
 # Health check (Cloud Run will use /health endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
