@@ -66,11 +66,10 @@ ENV PYTHONUNBUFFERED=1
 
 # HuggingFace transformers cache (pre-populated during build)
 # Model files are baked into the container image at this location
-# Build and runtime use same cache location for consistency
+# Runtime uses cached model automatically without offline mode
+# (Offline mode prevents loading from local cache - counterintuitively!)
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
-ENV TRANSFORMERS_OFFLINE=1
-ENV HF_HUB_OFFLINE=1
 
 # Health check (Cloud Run will use /health endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
