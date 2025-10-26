@@ -38,12 +38,12 @@ RUN pip install --no-cache-dir \
     psutil==6.1.0 \
     einops==0.8.0
 
-# Pre-download JinaV3 model during build using sentence-transformers
+# Pre-download JinaV3 model during build using transformers (matches runtime loader)
 # This ensures the model is baked into the container image
-# sentence-transformers handles caching more reliably than raw transformers
-ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers
-RUN mkdir -p /app/.cache/sentence_transformers && \
-    python -c "from sentence_transformers import SentenceTransformer; model = SentenceTransformer('jinaai/jina-embeddings-v3', trust_remote_code=True); print('✅ Model downloaded')"
+# Using transformers for both download and load ensures cache compatibility
+ENV HF_HOME=/app/.cache/huggingface
+RUN mkdir -p /app/.cache/huggingface && \
+    python -c "from transformers import AutoModel, AutoTokenizer; tokenizer = AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); model = AutoModel.from_pretrained('jinaai/jina-embeddings-v3', trust_remote_code=True); print('✅ Model downloaded')"
 
 # Copy application code
 COPY mcp-claude-connector-memory-server.py .
@@ -62,10 +62,11 @@ COPY tools/ ./tools/
 # Server will auto-detect Linux platform and use CPU (no MPS)
 ENV PYTHONUNBUFFERED=1
 
-# sentence-transformers cache (pre-populated during build)
+# HuggingFace transformers cache (pre-populated during build)
 # Model files are baked into the container image at this location
-# This works more reliably than raw transformers for offline model loading
-ENV HF_HOME=/app/.cache/sentence_transformers
+# Build and runtime use same cache location for consistency
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 
 # Health check (Cloud Run will use /health endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
