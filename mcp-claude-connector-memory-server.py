@@ -1530,8 +1530,22 @@ register_tool({
 
 async def handle_get_temporal_context(arguments: dict) -> dict:
     """Get conversations around a specific date (stdio v6.7.0 parity)"""
-    date = arguments["date"]
+    date_input = arguments["date"]
     window_days = arguments.get("window_days", 7)
+
+    # Normalize date input to YYYY-MM-DD format
+    # Handle both "YYYY-MM-DD" and full ISO datetime strings
+    try:
+        if 'T' in date_input:
+            # Full ISO datetime - extract date part
+            date_normalized = datetime.fromisoformat(date_input.replace('Z', '+00:00')).strftime('%Y-%m-%d')
+        else:
+            # Simple date format - validate and use as-is
+            datetime.strptime(date_input, '%Y-%m-%d')
+            date_normalized = date_input
+    except ValueError:
+        # If parsing fails, try to extract just the date part
+        date_normalized = date_input.split('T')[0] if 'T' in date_input else date_input
 
     try:
         query = """
@@ -1549,7 +1563,7 @@ async def handle_get_temporal_context(arguments: dict) -> dict:
             ORDER BY s.first_message_at ASC
         """
 
-        results = run_cypher(query, {"date": date, "window_days": window_days})
+        results = run_cypher(query, {"date": date_normalized, "window_days": window_days})
 
         conversations = []
         for record in results:
