@@ -14,3 +14,8 @@ sentence-transformers==3.2.1
 numpy==1.26.4
 psutil==6.1.0
 einops==0.8.0
+
+# Transformers required dependencies (missing from Cloud Run build)
+protobuf==5.28.3
+sentencepiece==0.2.0
+safetensors==0.4.5
