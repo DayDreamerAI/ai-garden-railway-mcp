@@ -1339,8 +1339,9 @@ async def handle_search_observations(arguments: dict) -> dict:
         if date_range:
             start_date, end_date = date_range
             match_parts.append("MATCH (o)-[:OCCURRED_ON]->(day:Day)")
-            where_parts.append("day.date >= date($start_date)")
-            where_parts.append("day.date <= date($end_date)")
+            # Use toString() for comparison because Day.date is stored as STRING, not Date object
+            where_parts.append("toString(day.date) >= $start_date")
+            where_parts.append("toString(day.date) <= $end_date")
             params['start_date'] = start_date
             params['end_date'] = end_date
 
