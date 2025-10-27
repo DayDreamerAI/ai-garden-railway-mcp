@@ -105,7 +105,7 @@ class JinaV3OptimizedEmbedder:
         self.use_quantization = use_quantization
         self.device = device
         self.max_input_length = 8192  # Jina v3 token capacity
-        self.embedding_timeout = float(os.getenv("EMBEDDING_TIMEOUT", "40.0"))  # seconds (Railway CPU needs ~24s for lazy load)
+        self.embedding_timeout = float(os.getenv("EMBEDDING_TIMEOUT", "60.0"))  # seconds (Cloud Run CPU needs ~43s for lazy load)
 
         # State management
         self.model = None
