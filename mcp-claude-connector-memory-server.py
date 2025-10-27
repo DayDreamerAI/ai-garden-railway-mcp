@@ -38,7 +38,7 @@ import time
 import hashlib
 import random
 import secrets
-from datetime import datetime, UTC, date
+from datetime import datetime, UTC
 from uuid import uuid4
 from aiohttp import web
 from dotenv import load_dotenv
