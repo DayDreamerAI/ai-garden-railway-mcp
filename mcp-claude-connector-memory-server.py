@@ -1622,7 +1622,7 @@ async def handle_get_temporal_context(arguments: dict) -> dict:
                 "importance_score": record["importance_score"]
             })
 
-        return {"conversations": conversations, "count": len(conversations), "date": date, "window_days": window_days}
+        return {"conversations": conversations, "count": len(conversations), "date": date_normalized, "window_days": window_days}
 
     except Exception as e:
         logger.error(f"❌ get_temporal_context error: {e}")
