@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.7.2+oauth2.1+sse-fixes] - 2025-10-28
+
+### 🛠️ SSE Transport Layer Fixes (Issues #10-11)
+
+#### Issue #10: SSE Timeout Mismatch
+- **Problem**: SSE connections timeout after 5 minutes while OAuth tokens valid for 1 hour, creating 55-minute authentication gap
+- **Root Cause**: `SSE_CONNECTION_TIMEOUT_SECONDS = 300` (5 min) vs `OAUTH_TOKEN_EXPIRY = 3600` (1 hour)
+- **Solution**: Increased `SSE_CONNECTION_TIMEOUT_SECONDS` from 300s to 3600s to match OAuth lifetime
+- **Enhanced Logging**: Added timeout tracking with auth_info, user_agent, platform metadata
+- **Deployment**: Revision 00029-fnz (October 28, 2025, 03:44 UTC)
+- **Impact**: ✅ Eliminated 55-minute authentication gap, tools accessible throughout full conversation
+
+#### Issue #11: Connection Pool Exhaustion
+- **Problem**: 10 SSE connections filled in 2 minutes, causing 503 errors and PBC startup failures
+- **Root Cause**: `MAX_SSE_CONNECTIONS = 10` too low for multiple Claude Desktop windows/conversations
+- **Evidence**: Logs showed connection pool 1/10 → 10/10 in 2 minutes, then 503 "connection limit reached"
+- **Solution**: Increased `MAX_SSE_CONNECTIONS` from 10 to 50 (5x headroom)
+- **Memory Safety**: 50 connections = ~1-2.5GB, circuit breaker at 4.5GB protects against OOM
+- **Deployment**: Revision 00032-mcn (October 28, 2025, 11:22 UTC)
+- **Impact**: ✅ Supports 50 concurrent conversations, no more 503 errors during normal operation
+
+#### Critical Infrastructure Alignment (Issue #10)
+- **Discovery**: Cloud Run `--timeout 60s` was killing SSE streams despite application code fix
+- **Problem**: Three-layer timeout hierarchy misalignment (Cloud Run 60s, App 3600s, OAuth 3600s)
+- **Solution**: Deployed with `--timeout 3600s` to align all layers
+- **Result**: Full 1-hour SSE connections working as designed
+
+---
+
+## [6.7.2+oauth2.1+stability] - 2025-10-27
+
+### 🛠️ Cloud Run Stability Fixes (Issues #7-9)
+
+**Multi-Layer Debugging Journey**: Three chained errors that masked each other, requiring iterative deployment and testing to discover the full chain.
+
+#### Fixed
+
+**Issue #7: Python Import Scope Error** (Misdiagnosed):
+- **Problem**: Desktop PBC showed `get_temporal_context` failing with "name 'date' is not defined"
+- **Attempted Fix**: Added `from datetime import date` to imports
+- **Result**: WRONG - This created Issue #8 (JSON serialization error)
+- **Deployment**: Revision 00025-rfj (October 26, 2025, 23:15 UTC)
+- **Key Learning**: Error messages can be misleading - must verify what code actually needs vs what errors suggest
+
+**Issue #8: JSON Serialization Error from Unused Import**:
+- **Problem**: Both `get_temporal_context` and `trace_entity_origin` failing with "Tool execution failed"
+- **Discovery**: Cloud Run logs showed "Object of type type is not JSON serializable" at 01:14:20 UTC
+- **Root Cause**: Issue #7 fix added `date` import, but code never uses `date()` function - unused `date` class (type object) was getting included in JSON responses
+- **Solution**: Removed unused `date` from import statement: `from datetime import datetime, UTC`
+- **Deployment**: Revision 00026-jlp (October 27, 2025, 01:30 UTC)
+- **Result**: Fixed `trace_entity_origin`, but `get_temporal_context` still broken
+- **Key Learning**: Always check current vs historical errors - don't assume error messages are still valid after fixes
+
+**Issue #9: Variable Reference Error in get_temporal_context Return Statement** (The Real Bug):
+- **Problem**: Desktop PBC still showed `get_temporal_context` failing with "name 'date' is not defined" after Issue #8 fix
+- **Discovery**: Line 1625 return statement referenced undefined variable `date`
+- **Root Cause**: Simple typo - parameter is `date_input` (line 1576), processed value is `date_normalized` (lines 1584/1588), but return used `"date": date`
+- **Solution**: Changed return statement from `"date": date` to `"date": date_normalized`
+- **Deployment**: Revision 00027-p77 (October 27, 2025, 12:37 UTC)
+- **Result**: ✅ ALL TOOLS WORKING - Desktop PBC returned 8 conversations
+- **Key Learning**: Issues #7-8 were red herrings masking the actual problem (simple variable reference error)
+
+#### Debugging Protocol Established
+
+**Multi-Layer Bug Discovery Pattern**:
+1. Check actual current state (Cloud Run logs, runtime) vs historical errors
+2. Don't assume error messages are still valid after fixes
+3. Verify what code actually does vs what error messages suggest
+4. Trace variable definitions through full function scope
+5. Account for deployment timing - Desktop sessions during deployment hit old revisions
+6. Each fix in a chain may expose the next hidden problem
+
+**Testing Protocol**:
+- Wait for deployment completion before testing (check timestamps)
+- Reconnect Desktop sessions to force new revision
+- Verify in both Desktop PBC output AND Cloud Run server logs
+
+#### Deployment
+
+**Cloud Run Production** (revision 00027-p77):
+- ✅ All 17 MCP tools operational (100% stdio parity)
+- ✅ Zero functionality degradation
+- ✅ Desktop PBC `get_temporal_context` returns 8 conversations
+- ✅ Cloud Run logs show zero errors in latest sessions
+- ✅ Configuration: 8GB memory, 60s timeout, us-central1
+
+---
+
 ## [6.7.2+oauth2.1] - 2025-10-26
 
 ### 🔐 OAuth 2.1 Complete Implementation + Cloud Run Production
