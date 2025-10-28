@@ -931,14 +931,28 @@ async def handle_add_observations(arguments: dict) -> dict:
                     except Exception as e:
                         logger.warning(f"⚠️ MVCM concept extraction failed for observation: {e}")
 
+            # ALWAYS update observation_count (even if summary generation skipped/failed)
+            # This ensures the property stays accurate regardless of summary refresh logic
+            count_result = session.run("""
+                MATCH (e:Entity {name: $entity_name})-[:ENTITY_HAS_OBSERVATION]->(obs:Observation)
+                WITH e, count(obs) as actual_count
+                SET e.observation_count = actual_count
+                RETURN actual_count
+            """, {'entity_name': entity_name})
+
+            count_record = count_result.single()
+            if count_record:
+                results['observation_count_updated'] = count_record['actual_count']
+                logger.debug(f"📊 Updated observation_count for '{entity_name}': {count_record['actual_count']}")
+
         results['v6_completed'] = True
         results['session_id'] = session_id
 
         # Log with MVCM statistics
         if results['mvcm_entity_mentions'] > 0:
-            logger.info(f"✅ Created {len(observations)} observations (session: {session_id}) | MVCM: {results['mvcm_concepts_extracted']} concepts → {results['mvcm_entity_mentions']} entity mentions")
+            logger.info(f"✅ Created {len(observations)} observations | count: {results.get('observation_count_updated', '?')} | MVCM: {results['mvcm_concepts_extracted']} concepts → {results['mvcm_entity_mentions']} entity mentions (session: {session_id})")
         else:
-            logger.info(f"✅ Created {len(observations)} schema-compliant observations (session: {session_id})")
+            logger.info(f"✅ Created {len(observations)} observations | count: {results.get('observation_count_updated', '?')} (session: {session_id})")
 
         return results
 

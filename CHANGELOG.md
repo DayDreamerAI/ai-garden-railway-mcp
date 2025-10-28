@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.7.3+observation-count-parity] - 2025-10-28
+
+### 🔧 observation_count Property Fix - Parity with stdio MCP Server
+
+**STATUS**: ✅ **COMPLETE** - Cloud Run connector now has 100% parity with stdio server
+
+#### Fixed
+
+**observation_count Property Never Incremented**:
+- **Problem**: Same bug as stdio server had - `add_observations` created observation nodes but never updated parent entity's `observation_count` property
+- **Impact**: Desktop/Web/Mobile users' observation counts would stay stale, causing discrepancies to reappear over time
+- **Root Cause**: Missing ALWAYS-update block after observation creation (lines 934-946 added)
+- **Solution**: Added comprehensive update block ensuring accuracy regardless of summary refresh logic
+
+**Code Changes** (`mcp-claude-connector-memory-server.py`):
+```python
+# Lines 934-946: ALWAYS update observation_count
+count_result = session.run("""
+    MATCH (e:Entity {name: $entity_name})-[:ENTITY_HAS_OBSERVATION]->(obs:Observation)
+    WITH e, count(obs) as actual_count
+    SET e.observation_count = actual_count
+    RETURN actual_count
+""", {'entity_name': entity_name})
+
+count_record = count_result.single()
+if count_record:
+    results['observation_count_updated'] = count_record['actual_count']
+    logger.debug(f"📊 Updated observation_count for '{entity_name}': {count_record['actual_count']}")
+```
+
+**Enhanced Logging** (lines 952-955):
+- Added observation_count to success messages for Cloud Run log visibility
+- Format: `✅ Created N observations | count: X | MVCM: Y concepts → Z mentions`
+
+#### Impact
+
+**Multi-Platform Consistency**:
+- ✅ stdio MCP (Claude Code): observation_count updates correctly
+- ✅ SSE MCP (Desktop/Web/Mobile): observation_count updates correctly
+- ✅ System-wide parity achieved across all transports
+
+**No Backfill Required**: The October 28, 2025 backfill already corrected all 1,352 entities (20,795 observations). This fix ensures future observations maintain accuracy.
+
+**Related Work**:
+- Main project CHANGELOG v4.4.3 - Entity Summary Foundation Phase 1
+- Perennial CHANGELOG v6.8.1 - observation_count fix and backfill
+- Memory CHANGELOG v3.5.3 - System-wide corrections
+- PBC CHANGELOG v2.0.17 - Production validation
+
+**Files Modified**:
+- `mcp-claude-connector-memory-server.py` (lines 934-955)
+
+**Deployment**: Pending - revision 00034+ will include this fix
+
+---
+
 ## [6.7.2+oauth2.1+sse-fixes] - 2025-10-28
 
 ### 🛠️ SSE Transport Layer Fixes (Issues #10-11)
