@@ -154,10 +154,10 @@ oauth_token_manager = None
 oauth_client_registry = None
 
 # Railway Memory Protection (Oct 18, 2025)
-# Increased from 5 to 10 for multi-platform usage (Desktop + Web + Mobile)
-MAX_SSE_CONNECTIONS = 10  # Limit concurrent connections to prevent memory accumulation
+# Increased from 10 to 50 for multiple concurrent conversations (Oct 28, 2025 - Issue #10)
+MAX_SSE_CONNECTIONS = 50  # Limit concurrent connections to prevent memory accumulation
 MEMORY_CIRCUIT_BREAKER_THRESHOLD_GB = 4.5  # Reject requests when memory exceeds this
-SSE_CONNECTION_TIMEOUT_SECONDS = 300  # 5 minutes - auto-cleanup stale connections
+SSE_CONNECTION_TIMEOUT_SECONDS = 3600  # 1 hour - matches OAuth token expiry (Issue #10 fix)
 
 # Protected entities for personality preservation
 PROTECTED_ENTITIES = [
@@ -1973,7 +1973,17 @@ async def handle_sse(request):
             # Auto-cleanup stale connections (older than timeout)
             connection_age = time.time() - connection_start
             if connection_age > SSE_CONNECTION_TIMEOUT_SECONDS:
-                logger.info(f"⏰ Session {session_id[:8]} timeout after {connection_age:.0f}s")
+                # Enhanced logging for timeout analysis (Issue #10 - Oct 27, 2025)
+                auth_info = request.get('auth', {})
+                user_agent = request.headers.get('User-Agent', 'unknown')[:50]
+                logger.warning(
+                    f"⏰ SSE connection timeout | "
+                    f"duration: {connection_age:.0f}s | "
+                    f"session: {session_id[:8]} | "
+                    f"client: {auth_info.get('client', 'unknown')} | "
+                    f"auth_type: {auth_info.get('type', 'none')} | "
+                    f"platform: {user_agent}"
+                )
                 break
 
             try:
