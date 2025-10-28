@@ -2,16 +2,16 @@
 
 **Multi-Platform Memory Sovereignty: Desktop + Web + Mobile**
 
-**Version**: 6.7.2+oauth2.1+sse-fixes (October 28, 2025)
+**Version**: 6.7.2+oauth2.1+sse-fixes+oauth-debug (October 28, 2025)
 **Stdio Parity**: 100% (17/17 tools)
-**Status**: ✅ PRODUCTION - SSE ISSUES #10-11 RESOLVED
+**Status**: ✅ PRODUCTION - SSE ISSUES #10-11 RESOLVED, OAuth #12 DIAGNOSED
 
 ## 🚀 Live Deployment (Cloud Run - Primary)
 
 - **Service URL**: https://daydreamer-mcp-connector-480492152047.us-central1.run.app
 - **SSE Endpoint**: https://daydreamer-mcp-connector-480492152047.us-central1.run.app/sse
 - **Platform**: Google Cloud Run (serverless, auto-scaling)
-- **Revision**: 00032-mcn (serving 100% traffic) - **All SSE issues resolved**
+- **Revision**: 00033-5nl (serving 100% traffic) - **Enhanced OAuth logging active**
 - **Protocol**: SSE Transport + OAuth 2.1
 - **Database**: Neo4j AuraDB InstanceDaydreamer_01
 - **Configuration**: 8GB memory, 3600s timeout, 50 max connections, us-central1
@@ -19,6 +19,7 @@
 - **Recent Fixes**:
   - Issue #10: SSE timeout aligned with OAuth (3600s)
   - Issue #11: Connection limit increased to 50
+  - Issue #12: Enhanced OAuth logging for reconnection debugging (client-side bug documented)
 
 ### 🔐 OAuth 2.1 Authentication
 

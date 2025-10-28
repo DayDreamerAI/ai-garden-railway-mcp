@@ -2155,15 +2155,50 @@ async def auth_middleware(request, handler):
         logger.debug("Legacy bearer token authenticated")
         return await handler(request)
 
-    # Try OAuth JWT token
+    # Try OAuth JWT token (Issue #12: Enhanced debugging)
     if OAUTH_ENABLED and oauth_token_manager:
-        payload = oauth_token_manager.validate_token(token)
+        payload, reason, token_info = oauth_token_manager.validate_token_detailed(token)
+
         if payload:
             request['auth'] = {"type": "jwt", "client": payload.get("sub")}
             logger.debug(f"OAuth client authenticated: {payload.get('sub')}")
             return await handler(request)
 
-    # Invalid token
+        # Token validation failed - provide specific error responses
+        if reason == "expired":
+            logger.warning(f"🔒 AUTH REJECTED (EXPIRED) | path={request.path} | "
+                          f"client={token_info.get('client_id') if token_info else 'unknown'} | "
+                          f"expired_by={abs(token_info.get('time_until_expiry', 0))}s | "
+                          f"user_agent={request.headers.get('User-Agent', 'unknown')}")
+            return web.Response(
+                text='Unauthorized - Token expired (Issue #12: Please re-authenticate)',
+                status=401,
+                headers={
+                    'WWW-Authenticate': 'Bearer realm="MCP Server", error="invalid_token", error_description="Token has expired"'
+                }
+            )
+        elif reason == "invalid_signature":
+            logger.warning(f"🔒 AUTH REJECTED (INVALID SIGNATURE) | path={request.path} | "
+                          f"client={token_info.get('client_id') if token_info else 'unknown'} | "
+                          f"hint=Server restart invalidated all tokens")
+            return web.Response(
+                text='Unauthorized - Invalid token signature (server may have restarted)',
+                status=401,
+                headers={
+                    'WWW-Authenticate': 'Bearer realm="MCP Server", error="invalid_token", error_description="Invalid signature"'
+                }
+            )
+        else:
+            logger.warning(f"🔒 AUTH REJECTED ({reason.upper()}) | path={request.path}")
+            return web.Response(
+                text=f'Unauthorized - Token validation failed: {reason}',
+                status=401,
+                headers={
+                    'WWW-Authenticate': f'Bearer realm="MCP Server", error="invalid_token", error_description="{reason}"'
+                }
+            )
+
+    # Invalid token (no OAuth or token didn't match legacy)
     return web.Response(
         text='Unauthorized - Invalid or expired token',
         status=401,
