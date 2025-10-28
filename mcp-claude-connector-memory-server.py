@@ -11,7 +11,7 @@ Architecture:
 - Production-Ready: AuraDB, JinaV3 embeddings, schema enforcement
 
 Created: October 5, 2025
-Version: 6.7.0 (Stdio Parity - ONE CANONICAL LOGIC)
+Version: 6.7.3 (observation_count Parity - Entity Summary Foundation)
 Last Updated: October 20, 2025
 
 V6.7.0 Update (Oct 20, 2025) - Complete Stdio Parity:
@@ -89,7 +89,7 @@ load_dotenv()
 
 # Server Configuration
 PORT = int(os.environ.get('PORT', 8080))
-SERVER_VERSION = "6.7.1"  # Stdio Sync: Added observation source property (Oct 22 stdio fix)
+SERVER_VERSION = "6.7.3"  # Entity Summary Foundation: observation_count parity with stdio (Oct 28)
 MCP_VERSION = "2024-11-05"
 
 # Neo4j Configuration
